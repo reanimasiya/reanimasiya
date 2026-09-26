@@ -1,0 +1,2466 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Forex CSV Backtester</title>
+<style>
+:root{--bg:#0b1020;--panel:#121a2d;--panel2:#18233b;--text:#e8edf7;--muted:#9eabc2;--accent:#5aa9ff;--good:#31c48d;--bad:#ff6b6b;--line:#283653}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+.wrap{max-width:1750px;margin:auto;padding:15px}
+.head{display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:12px}
+h1{margin:0;font-size:22px}.sub{color:var(--muted);font-size:12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+h2{font-size:14px;margin:0 0 10px;color:var(--accent)}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modebox{grid-column:1/-1;background:#0d1527;border:1px solid var(--line);border-radius:8px;padding:8px}
+.modebox .fields{margin-top:6px}
+.hint{font-size:11px;color:var(--muted);margin-top:4px}
+label{display:block;color:var(--muted);font-size:11px;margin-bottom:2px}
+input,select,button{font:inherit;font-size:12px}
+input,select{width:100%;background:#0d1527;border:1px solid var(--line);border-radius:6px;color:var(--text);padding:6px 8px}
+input[type=file]{padding:4px}.full{grid-column:1/-1}
+button{border:0;border-radius:6px;padding:8px 10px;cursor:pointer;font-weight:600}.primary{background:var(--accent);color:#07111f}.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.status{margin-top:6px;color:var(--muted);min-height:16px;font-size:11px}
+
+/* Top Section Layout */
+.top-section{display:grid;grid-template-columns:320px 1fr;gap:10px;margin-bottom:10px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column;justify-content:center}.card .v{font-size:18px;font-weight:700;margin-top:2px}.card .k{font-size:11px;color:var(--muted)}
+.card-gp{border-color:rgba(49,196,141,0.4) !important;background:rgba(49,196,141,0.08) !important}
+.card-gl{border-color:rgba(255,107,107,0.4) !important;background:rgba(255,107,107,0.08) !important}
+.good{color:var(--good)}.bad{color:var(--bad)}
+
+/* Middle Section Layout: 4 Columns */
+.middle-grid{display:grid;grid-template-columns:repeat(4, minmax(280px, 1fr));gap:10px;margin-bottom:10px;align-items:start}
+.column{display:flex;flex-direction:column;gap:10px}
+
+/* Rule Card Styles */
+.rule-card{margin:0 0 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px}
+.rule-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.rule-toggle{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:var(--accent);font-weight:600}
+.rule-toggle input[type=checkbox]{width:auto;cursor:pointer}
+.close-filter{margin-top:6px;padding-top:4px;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:4px}
+.close-filter-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);cursor:pointer;line-height:1.2}
+.close-filter-item input[type=checkbox]{width:auto;margin:0;cursor:pointer}
+.cf-pips-wrap{display:inline-flex;align-items:center;gap:3px;margin-left:4px}
+.cf-sign{font-weight:700;color:var(--muted)}
+.cf-pips-input{width:52px;padding:2px 4px;font-size:10px;height:20px}
+
+/* Stop Limit xəbərdarlıq işarəsi (Giriş nöqtəsi: Buy/Sell Stop Limit seçildikdə görünür) */
+.tf-wrap{position:relative}
+.tf-warn{display:none;vertical-align:middle;margin-left:6px;cursor:help;outline:none}
+.tf-warn.show{display:inline-block}
+.tf-ico{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#ffd84d;color:#3a2c00;font-size:10px;font-weight:800;line-height:1}
+.tf-tip{visibility:hidden;opacity:0;pointer-events:none;position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:60;background:#ffd84d;color:#3a2c00;border:1px solid #e0b800;border-radius:6px;padding:6px 8px;font-size:11px;font-weight:600;line-height:1.35;text-transform:none;letter-spacing:normal;box-shadow:0 4px 14px rgba(0,0,0,.45);transition:opacity .12s}
+.tf-warn:hover .tf-tip,.tf-warn:focus .tf-tip{visibility:visible;opacity:1}
+
+/* Bottom Section Layout */
+.bottom-section{display:flex;flex-direction:column;gap:10px}
+.chart{height:240px;width:100%;background:#0d1527;border-radius:8px;border:1px solid var(--line)}
+.tablewrap{overflow:auto;max-height:350px;border:1px solid var(--line);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:right}th{position:sticky;top:0;background:#18233b;text-align:right}th:first-child,td:first-child{text-align:left}
+.note{font-size:11px;color:var(--muted);margin-top:6px}.pill{display:inline-block;padding:2px 6px;border-radius:99px;background:var(--panel2);font-size:10px}
+
+@media(max-width:1250px){.middle-grid{grid-template-columns:repeat(2, 1fr);}}
+@media(max-width:650px){.middle-grid{grid-template-columns:1fr;}.top-section{grid-template-columns:1fr;}.cards{grid-template-columns:repeat(2,1fr);}}
+</style>
+
+<!-- Supabase Auth -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  #authGate {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: #0b1220;
+    color: #e5e7eb;
+  }
+  #authCard {
+    width: min(420px, 100%);
+    box-sizing: border-box;
+    padding: 28px;
+    border: 1px solid #263246;
+    border-radius: 16px;
+    background: #111827;
+    box-shadow: 0 24px 70px rgba(0,0,0,.45);
+  }
+  #authCard h1 {
+    margin: 0 0 8px;
+    font-size: 24px;
+  }
+  #authCard .authSub {
+    margin: 0 0 22px;
+    color: #9ca3af;
+    font-size: 14px;
+  }
+  #authCard label {
+    display: block;
+    margin: 14px 0 7px;
+    font-size: 13px;
+    color: #cbd5e1;
+  }
+  #authCard input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 13px;
+    border: 1px solid #334155;
+    border-radius: 9px;
+    background: #0f172a;
+    color: #f8fafc;
+    outline: none;
+  }
+  #authCard input:focus {
+    border-color: #60a5fa;
+  }
+  #loginBtn {
+    width: 100%;
+    margin-top: 20px;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 9px;
+    background: #2563eb;
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #loginBtn:disabled {
+    opacity: .6;
+    cursor: wait;
+  }
+  #authMsg {
+    min-height: 20px;
+    margin-top: 14px;
+    font-size: 13px;
+    color: #fca5a5;
+  }
+  #authUserBar {
+    position: fixed;
+    right: 14px;
+    top: 14px;
+    z-index: 999998;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    border: 1px solid rgba(148,163,184,.25);
+    border-radius: 9px;
+    background: rgba(15,23,42,.92);
+    color: #cbd5e1;
+    font: 12px/1.2 system-ui, sans-serif;
+    backdrop-filter: blur(8px);
+  }
+  #logoutBtn {
+    border: 0;
+    border-radius: 6px;
+    padding: 5px 8px;
+    background: #334155;
+    color: #fff;
+    cursor: pointer;
+  }
+  body.auth-locked > :not(#authGate):not(#authUserBar) {
+    pointer-events: none;
+  }
+</style>
+
+
+<style>
+#createUserModal{display:none;position:fixed;inset:0;z-index:1000000;background:rgba(2,6,23,.78);align-items:center;justify-content:center;padding:18px;box-sizing:border-box}
+#createUserModal .createUserCard{width:min(460px,100%);background:#111827;border:1px solid #334155;border-radius:14px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+#createUserModal h3{margin:0 0 5px;font-size:18px}
+#createUserModal .createHint{color:#94a3b8;font-size:12px;margin-bottom:16px}
+#createUserModal label{display:block;color:#94a3b8;font-size:12px;margin:10px 0 5px}
+#createUserModal input,#createUserModal select{width:100%;box-sizing:border-box;background:#0f172a;color:#e5e7eb;border:1px solid #334155;border-radius:8px;padding:9px}
+#createUserModal .createActions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+#createUserMsg{min-height:18px;margin-top:10px;font-size:12px}
+#adminPanel{display:none;position:fixed;inset:0;z-index:999997;overflow:auto;background:#0b1220;color:#e5e7eb;padding:24px;box-sizing:border-box;font-family:system-ui,sans-serif}
+.adminWrap{max-width:1180px;margin:auto}.adminTop{display:flex;justify-content:space-between;gap:12px;margin-bottom:22px}.adminTop h2{margin:0}.adminSub{color:#94a3b8;font-size:13px;margin-top:5px}
+.adminBtn{border:1px solid #334155;border-radius:8px;background:#111827;color:#e5e7eb;padding:9px 12px;cursor:pointer}.adminCards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.adminCard,.adminTableBox{background:#111827;border:1px solid #263246;border-radius:12px}.adminCard{padding:17px}.adminLabel{color:#94a3b8;font-size:12px}.adminValue{font-size:25px;font-weight:700;margin-top:7px}
+.adminTableBox{overflow:hidden}.adminTableHead{padding:14px 16px;border-bottom:1px solid #263246;display:flex;justify-content:space-between}.adminTableScroll{overflow:auto}
+#adminUsersTable{width:100%;border-collapse:collapse;min-width:760px}#adminUsersTable th,#adminUsersTable td{padding:11px 12px;border-bottom:1px solid #1e293b;text-align:left;font-size:13px}#adminUsersTable th{color:#94a3b8;background:#0f172a}
+.adminBadge{display:inline-block;padding:3px 7px;border-radius:999px;background:#1e293b;font-size:11px}.adminActive{color:#86efac}.adminBlocked{color:#fca5a5}
+.adminEmpty{padding:30px;text-align:center;color:#94a3b8}@media(max-width:720px){#adminPanel{padding:14px}.adminCards{grid-template-columns:1fr}}
+</style>
+
+</head>
+<body class="auth-locked">
+
+<div id="authGate">
+  <div id="authCard">
+    <h1>Forex Backtester</h1>
+    <p class="authSub">Davam etmək üçün hesabınıza daxil olun.</p>
+
+    <label for="authEmail">E-mail</label>
+    <input id="authEmail" type="email" autocomplete="username" placeholder="E-mail ünvanı">
+
+    <label for="authPassword">Şifrə</label>
+    <input id="authPassword" type="password" autocomplete="current-password" placeholder="Şifrə">
+
+    <button id="loginBtn" type="button">Daxil ol</button>
+    <div id="authMsg"></div>
+  </div>
+</div>
+
+<div id="authUserBar">
+  <span id="authUserEmail"></span>
+  <span id="authUserRole"></span>
+  <button id="adminOpenBtn" type="button" style="display:none;border:0;border-radius:6px;padding:5px 8px;background:#2563eb;color:#fff;cursor:pointer;">Admin</button>
+  <button id="logoutBtn" type="button">Çıxış</button>
+</div>
+<div id="adminPanel">
+  <div class="adminWrap">
+    <div class="adminTop">
+      <div><h2>Admin Panel</h2><div class="adminSub">İstifadəçilərin idarə edilməsi</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="adminBtn" id="adminCreateUserBtn" type="button">+ Yeni istifadəçi</button>
+        <button class="adminBtn" id="adminRefreshBtn" type="button">Yenilə</button>
+        <button class="adminBtn" id="adminBackBtn" type="button">Backtesterə qayıt</button>
+      </div>
+    </div>
+    <div class="adminCards">
+      <div class="adminCard"><div class="adminLabel">Ümumi istifadəçi</div><div class="adminValue" id="adminTotal">—</div></div>
+      <div class="adminCard"><div class="adminLabel">Aktiv</div><div class="adminValue" id="adminActive">—</div></div>
+      <div class="adminCard"><div class="adminLabel">Bloklanmış</div><div class="adminValue" id="adminBlocked">—</div></div>
+    </div>
+    <div class="adminTableBox">
+      <div class="adminTableHead"><strong>İstifadəçilər</strong><span id="adminStatus" class="adminSub"></span></div>
+      <div class="adminTableScroll">
+        <table id="adminUsersTable">
+          <thead><tr><th>E-mail</th><th>Ad / Soyad</th><th>Rol</th><th>Status</th><th>Qeydiyyat</th><th>Əməliyyat</th></tr></thead>
+          <tbody id="adminUsersBody"></tbody>
+        </table>
+      </div>
+      <div id="adminEmpty" class="adminEmpty" style="display:none">İstifadəçi tapılmadı.</div>
+    </div>
+  </div>
+</div>
+
+<div id="createUserModal">
+  <div class="createUserCard">
+    <h3>Yeni istifadəçi yarat</h3>
+    <div class="createHint">Yeni hesab avtomatik olaraq <b>User</b> rolunda yaradılacaq.</div>
+
+    <label for="newUserFullName">Ad / Soyad</label>
+    <input id="newUserFullName" type="text" autocomplete="name" placeholder="Məsələn: Əli Məmmədov">
+
+    <label for="newUserEmail">E-mail</label>
+    <input id="newUserEmail" type="email" autocomplete="email" placeholder="user@gmail.com">
+
+    <label for="newUserPassword">Şifrə</label>
+    <input id="newUserPassword" type="password" autocomplete="new-password" placeholder="Ən azı 6 simvol">
+
+    <label for="newUserStatus">Status</label>
+    <select id="newUserStatus">
+      <option value="active" selected>Aktiv</option>
+      <option value="blocked">Bloklu</option>
+    </select>
+
+    <div id="createUserMsg"></div>
+    <div class="createActions">
+      <button class="adminBtn" id="createUserCancelBtn" type="button">Ləğv et</button>
+      <button class="adminBtn" id="createUserSubmitBtn" type="button" style="background:#2563eb;border-color:#2563eb;color:#fff">İstifadəçi yarat</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="head">
+    <div><h1>Forex CSV Backtester</h1><div class="sub">MT5 CSV-ni Bakı vaxtına çevirir və Çərçivəni Pine indikatorundakı High/Low və pip alqoritmi ilə hesablayır.</div></div>
+    <span class="pill">Offline • server tələb etmir</span>
+  </div>
+
+  <!-- YUXARI PANEL: Profil İdarəetməsi və Statistik Kartlar -->
+  <div class="top-section">
+    <div class="panel" style="margin:0">
+      <h2 style="margin:0 0 6px">Profil İdarəetməsi</h2>
+      <div class="actions" style="margin-top:0">
+        <button class="secondary" id="saveProfileBtn">Profil Saxla</button>
+        <button class="secondary" id="loadProfileBtn">Profil Yüklə</button>
+        <button class="secondary" id="exportProfileBtn">İxrac (.json)</button>
+        <button class="secondary" id="importProfileBtn">İdxal Et</button>
+        <input type="file" id="profileFileInput" accept=".json" style="display:none">
+      </div>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="k">Trades</div><div class="v" id="n">—</div></div>
+      <div class="card"><div class="k">Win rate</div><div class="v" id="wr">—</div></div>
+      <div class="card card-gp"><div class="k" style="color:var(--good);font-weight:600">Gross profit</div><div class="v good" id="gp">—</div></div>
+      <div class="card card-gl"><div class="k" style="color:var(--bad);font-weight:600">Gross loss</div><div class="v bad" id="gl">—</div></div>
+      <div class="card"><div class="k">Net P&L</div><div class="v" id="pnl">—</div></div>
+      <div class="card"><div class="k">Profit factor</div><div class="v" id="pf">—</div></div>
+      <div class="card"><div class="k">Max drawdown</div><div class="v" id="dd">—</div></div>
+      <div class="card"><div class="k">Ending equity</div><div class="v" id="eq">—</div></div>
+    </div>
+  </div>
+
+  <!-- ORTA PANEL (4 SÜTUN) -->
+  <div class="middle-grid">
+    <!-- SÜTUN 1: CSV, Çərçivə, Nümunə -->
+    <div class="column">
+      <div class="panel">
+        <h2>1. CSV məlumatı</h2>
+        <input id="file" type="file" accept=".csv,.txt">
+        <div class="status" id="fileStatus">CSV faylı seçin.</div>
+      </div>
+      <div class="panel">
+        <h2>Çərçivə</h2>
+        <div class="fields">
+          <div><label>Başlanğıc</label><input id="frameStart" type="time" value="02:00"></div>
+          <div><label>Son</label><input id="frameEnd" type="time" value="03:59"></div>
+          <div><label>Pip ölçüsü</label><input id="pipSize" type="number" value="0.0001" step="0.00001" min="0.00001"></div>
+          <div><label>Hesab</label><select id="pipMode"><option value="manual">Əl ilə</option><option value="indicator" selected>Avto</option></select></div>
+        </div>
+        <div class="tf-wrap" style="margin-top:6px">
+          <label class="close-filter-item" style="display:block">
+            <input type="checkbox" id="autoTz" checked> Avtomatik saat qurşağı (ABŞ yay/qış vaxtı)<span class="tf-warn show" id="tzInfoIcon" tabindex="0" role="note" aria-label="Saat qurşağı məlumatı"><span class="tf-ico">i</span><span class="tf-tip" id="tzInfoTip">—</span></span>
+          </label>
+          <div id="manualTzModeWrap" class="full" style="display:none;margin-top:6px">
+            <label>Manual rejim</label>
+            <select id="manualTzMode">
+              <option value="summer" selected>Yay vaxtı (DST, broker GMT+3, Bakıdan fərq +1 saat)</option>
+              <option value="winter">Qış vaxtı (Standart, broker GMT+2, Bakıdan fərq +2 saat)</option>
+            </select>
+            <div class="hint" id="manualTzModeHint">—</div>
+          </div>
+        </div>
+        <div class="status" id="frameStatus">CSV yüklənəndən sonra hesablanacaq.</div>
+      </div>
+      <div class="panel">
+        <h2>CSV format nümunəsi</h2>
+        <pre style="overflow:auto;color:#b8c5db;font-size:10px;margin:0">Date,Time,Open,High,Low,Close
+2026-01-02,13:30,4310.2,4313.8,4307.1,4312.5
+2026-01-02,13:31,4312.5,4315.0,4311.2,4314.4</pre>
+      </div>
+    </div>
+
+    <!-- SÜTUN 2: Qayda 1 və Qayda 3 -->
+    <div class="column">
+      <div class="panel" style="padding:8px">
+        <h2>Backtest Qaydaları (Sol)</h2>
+        <!-- QAYDA 1 -->
+        <div class="rule-card">
+          <div class="rule-header">
+            <h2 style="font-size:13px;margin:0">Qayda 1</h2>
+            <label class="rule-toggle"><input type="checkbox" id="active1" checked onchange="toggleRuleAccordion(1)"> Aktiv</label>
+          </div>
+          <div id="ruleBody1">
+            <div class="fields">
+              <div><label>İstiqamət</label><select id="side1"><option value="buy">BUY</option><option value="sell">SELL</option></select></div>
+              <div><label>Giriş tipi</label><select id="entryType1"><option value="time">Müəyyən vaxt</option><option value="interval" selected>Intervalda</option></select></div>
+              <div id="timeWrap1" style="display:none" class="full"><label>Giriş vaxtı</label><input id="time1" type="time" value="13:30"></div>
+              <div id="intervalStartWrap1"><label>Int. başlanğıc</label><input id="intervalStart1" type="time" value="04:00"></div>
+              <div id="intervalEndWrap1"><label>Int. son</label><input id="intervalEnd1" type="time" value="11:30"></div>
+              <div class="modebox full" id="entryPointPanel1">
+                <div class="tf-wrap"><label>Giriş nöqtəsi<span class="tf-warn" id="tfWarn1" tabindex="0" role="note" aria-label="Xəbərdarlıq"><span class="tf-ico">!</span><span class="tf-tip">Daha dəqiq nəticələrin əldə olunması üçün kiçik taymfreym (məsələn, 1 dəqiqəlik TF) istifadə olunması məsləhətdir 🧐</span></span></label></div>
+                <select id="entryPointMode1">
+                  <option value="frameLevel">1. Çərçivə Min/Maks</option>
+                  <option value="frameOffset">2. Çərçivədən ± pips</option>
+                  <option value="buyStopLimit">3. Buy Stop Limit</option>
+                  <option value="sellStopLimit">4. Sell Stop Limit</option>
+                </select>
+                <div id="entryLevelWrap1" class="fields" style="margin-top:6px">
+                  <div class="full"><label>Səviyyə</label><select id="entryLevel1"><option value="min">Minimum (Low)</option><option value="max">Maksimum (High)</option><option value="maxMinus">Maksimum (High) − pips</option><option value="minPlus">Minimum (Low) + pips</option></select></div><div id="entryLevelPipsWrap1" class="full" style="display:none"><label>Məsafə (pips)</label><input id="entryLevelPips1" type="number" value="10" step="0.01" min="0"></div>
+                </div>
+                <div id="entryOffsetWrap1" class="fields" style="display:none;margin-top:6px">
+                  <div><label>Səviyyə</label><select id="entryOffsetLevel1"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="entryOffsetDir1"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="entryOffsetPips1" type="number" value="10" step="0.01" min="0"></div>
+                </div>
+                <div class="close-filter">
+                  <label class="close-filter-item"><input type="checkbox" id="reqCloseBelowMin1"> min-dən aşağı bağlandıqda<span class="cf-pips-wrap" id="reqCloseBelowPipsWrap1" style="display:none"><span class="cf-sign">−</span><input type="number" id="reqCloseBelowPips1" class="cf-pips-input" value="0" min="0" step="0.01" title="Ən azı bu qədər pips aşağı bağlanmalıdır (0 = məsafənin əhəmiyyəti yoxdur)"></span></label>
+                  <label class="close-filter-item"><input type="checkbox" id="reqCloseAboveMax1"> max-dan yuxarı bağlandıqda<span class="cf-pips-wrap" id="reqCloseAbovePipsWrap1" style="display:none"><span class="cf-sign">+</span><input type="number" id="reqCloseAbovePips1" class="cf-pips-input" value="0" min="0" step="0.01" title="Ən azı bu qədər pips yuxarı bağlanmalıdır (0 = məsafənin əhəmiyyəti yoxdur)"></span></label>
+                </div>
+                <div id="stopPriceBox1" class="fields" style="display:none;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)">
+                  <div class="full"><label>Stop Price (Tətik qiyməti)</label>
+                    <select id="entryStopPriceMode1">
+                      <option value="frameLevel">1. Çərçivə Min/Maks</option>
+                      <option value="frameOffset">2. Çərçivədən ± pips</option>
+                    </select>
+                  </div>
+                  <div id="entryStopLevelWrap1" class="fields full" style="margin-top:6px">
+                    <div class="full"><label>Səviyyə</label><select id="entryStopLevel1"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  </div>
+                  <div id="entryStopOffsetWrap1" class="fields full" style="display:none;margin-top:6px">
+                    <div><label>Səviyyə</label><select id="entryStopOffsetLevel1"><option value="min">Min</option><option value="max">Max</option></select></div>
+                    <div><label>İstiqamət</label><select id="entryStopOffsetDir1"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                    <div class="full"><label>Məsafə (pips)</label><input id="entryStopOffsetPips1" type="number" value="10" step="0.01" min="0"></div>
+                  </div>
+                  <div class="hint" id="stopLimitCheck1"></div>
+                </div>
+              </div>
+              <div class="modebox full">
+                <label>Stop Loss</label>
+                <select id="slMode1">
+                  <option value="fixed">1. Stabil pips</option>
+                  <option value="frameLevel">2. Çərçivə səviyyəsi</option>
+                  <option value="frameOffset">3. Çərçivədən ± pips</option>
+                   <option value="prevDayLow">4. Əvvəlki günün minimumu (Low)</option>
+                   <option value="prevDayHigh">5. Əvvəlki günün maksimumu (High)</option>
+                </select>
+                <div id="slFixedWrap1" class="fields">
+                  <div class="full"><label>Stabil SL (pips)</label><input id="slFixed1" type="number" value="10" step="0.01" min="0"></div>
+                </div>
+                <div id="slLevelWrap1" class="fields" style="display:none">
+                  <div class="full"><label>Səviyyə</label><select id="slLevel1"><option value="min">Min</option><option value="max">Max</option></select></div>
+                </div>
+                <div id="slOffsetWrap1" class="fields" style="display:none">
+                  <div><label>Səviyyə</label><select id="slOffsetLevel1"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="slOffsetDir1"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="slOffsetPips1" type="number" value="10" step="0.01" min="0"></div>
+                <div id="slPrevDayInfo1" class="hint" style="display:none;margin-top:6px"></div>
+                </div>
+              </div>
+              <div class="modebox full">
+                <label>Take Profit</label>
+                <select id="tpMode1">
+                  <option value="fixed">1. Stabil pips</option>
+                  <option value="frameOffset">2. Çərçivədən ± pips</option>
+                  <option value="time">3. Vaxtda bağla</option>
+                   <option value="prevDayLow">4. Əvvəlki günün minimumu (Low)</option>
+                   <option value="prevDayHigh">5. Əvvəlki günün maksimumu (High)</option>
+                </select>
+                <div id="tpFixedWrap1" class="fields">
+                  <div class="full"><label>Stabil TP (pips)</label><input id="tpFixed1" type="number" value="10" step="0.01" min="0"></div>
+                </div>
+                <div id="tpTimeWrap1" class="fields" style="display:none">
+                  <div class="full"><label>Bağlanma vaxtı</label><input id="tpTime1" type="time" value="23:30"></div>
+                </div>
+                <div id="tpOffsetWrap1" class="fields" style="display:none">
+                  <div><label>Səviyyə</label><select id="tpOffsetLevel1"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="tpOffsetDir1"><option value="above">Yuxarı</option><option value="below">Aşağı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="tpOffsetPips1" type="number" value="10" step="0.01" min="0"></div>
+                <div id="tpPrevDayInfo1" class="hint" style="display:none;margin-top:6px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- QAYDA 3 -->
+        <div class="rule-card">
+          <div class="rule-header">
+            <h2 style="font-size:13px;margin:0">Qayda 3</h2>
+            <label class="rule-toggle"><input type="checkbox" id="active3" onchange="toggleRuleAccordion(3)"> Aktiv et</label>
+          </div>
+          <div id="ruleBody3" style="display:none">
+            <div class="fields">
+              <div><label>İstiqamət</label><select id="side3"><option value="buy">BUY</option><option value="sell">SELL</option></select></div>
+              <div><label>Giriş tipi</label><select id="entryType3"><option value="time">Müəyyən vaxt</option><option value="interval" selected>Intervalda</option></select></div>
+              <div id="timeWrap3" style="display:none" class="full"><label>Giriş vaxtı</label><input id="time3" type="time" value="13:30"></div>
+              <div id="intervalStartWrap3"><label>Int. başlanğıc</label><input id="intervalStart3" type="time" value="04:00"></div>
+              <div id="intervalEndWrap3"><label>Int. son</label><input id="intervalEnd3" type="time" value="11:30"></div>
+              <div class="modebox full" id="entryPointPanel3">
+                <div class="tf-wrap"><label>Giriş nöqtəsi<span class="tf-warn" id="tfWarn3" tabindex="0" role="note" aria-label="Xəbərdarlıq"><span class="tf-ico">!</span><span class="tf-tip">Daha dəqiq nəticələrin əldə olunması üçün kiçik taymfreym (məsələn, 1 dəqiqəlik TF) istifadə olunması məsləhətdir 🧐</span></span></label></div>
+                <select id="entryPointMode3">
+                  <option value="frameLevel">1. Çərçivə Min/Maks</option>
+                  <option value="frameOffset">2. Çərçivədən ± pips</option>
+                  <option value="buyStopLimit">3. Buy Stop Limit</option>
+                  <option value="sellStopLimit">4. Sell Stop Limit</option>
+                </select>
+                <div id="entryLevelWrap3" class="fields" style="margin-top:6px">
+                  <div class="full"><label>Səviyyə</label><select id="entryLevel3"><option value="min">Min</option><option value="max">Max</option><option value="maxMinus">Max − pips</option><option value="minPlus">Min + pips</option></select></div><div id="entryLevelPipsWrap3" class="full" style="display:none"><label>Məsafə (pips)</label><input id="entryLevelPips3" type="number" value="10" step="0.01" min="0"></div>
+                </div>
+                <div id="entryOffsetWrap3" class="fields" style="display:none;margin-top:6px">
+                  <div><label>Səviyyə</label><select id="entryOffsetLevel3"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="entryOffsetDir3"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="entryOffsetPips3" type="number" value="10" step="0.01" min="0"></div>
+                </div>
+                <div class="close-filter">
+                  <label class="close-filter-item"><input type="checkbox" id="reqCloseBelowMin3"> min-dən aşağı bağlandıqda<span class="cf-pips-wrap" id="reqCloseBelowPipsWrap3" style="display:none"><span class="cf-sign">−</span><input type="number" id="reqCloseBelowPips3" class="cf-pips-input" value="0" min="0" step="0.01" title="Ən azı bu qədər pips aşağı bağlanmalıdır (0 = məsafənin əhəmiyyəti yoxdur)"></span></label>
+                  <label class="close-filter-item"><input type="checkbox" id="reqCloseAboveMax3"> max-dan yuxarı bağlandıqda<span class="cf-pips-wrap" id="reqCloseAbovePipsWrap3" style="display:none"><span class="cf-sign">+</span><input type="number" id="reqCloseAbovePips3" class="cf-pips-input" value="0" min="0" step="0.01" title="Ən azı bu qədər pips yuxarı bağlanmalıdır (0 = məsafənin əhəmiyyəti yoxdur)"></span></label>
+                </div>
+                <div id="stopPriceBox3" class="fields" style="display:none;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)">
+                  <div class="full"><label>Stop Price (Tətik qiyməti)</label>
+                    <select id="entryStopPriceMode3">
+                      <option value="frameLevel">1. Çərçivə Min/Maks</option>
+                      <option value="frameOffset">2. Çərçivədən ± pips</option>
+                    </select>
+                  </div>
+                  <div id="entryStopLevelWrap3" class="fields full" style="margin-top:6px">
+                    <div class="full"><label>Səviyyə</label><select id="entryStopLevel3"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  </div>
+                  <div id="entryStopOffsetWrap3" class="fields full" style="display:none;margin-top:6px">
+                    <div><label>Səviyyə</label><select id="entryStopOffsetLevel3"><option value="min">Min</option><option value="max">Max</option></select></div>
+                    <div><label>İstiqamət</label><select id="entryStopOffsetDir3"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                    <div class="full"><label>Məsafə (pips)</label><input id="entryStopOffsetPips3" type="number" value="10" step="0.01" min="0"></div>
+                  </div>
+                  <div class="hint" id="stopLimitCheck3"></div>
+                </div>
+              </div>
+              <div class="modebox full">
+                <label>Stop Loss</label>
+                <select id="slMode3">
+                  <option value="fixed">1. Stabil pips</option>
+                  <option value="frameLevel">2. Çərçivə səviyyəsi</option>
+                  <option value="frameOffset">3. Çərçivədən ± pips</option>
+                   <option value="prevDayLow">4. Əvvəlki günün minimumu (Low)</option>
+                   <option value="prevDayHigh">5. Əvvəlki günün maksimumu (High)</option>
+                </select>
+                <div id="slFixedWrap3" class="fields">
+                  <div class="full"><label>Stabil SL (pips)</label><input id="slFixed3" type="number" value="10" step="0.01" min="0"></div>
+                </div>
+                <div id="slLevelWrap3" class="fields" style="display:none">
+                  <div class="full"><label>Səviyyə</label><select id="slLevel3"><option value="min">Min</option><option value="max">Max</option></select></div>
+                </div>
+                <div id="slOffsetWrap3" class="fields" style="display:none">
+                  <div><label>Səviyyə</label><select id="slOffsetLevel3"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="slOffsetDir3"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="slOffsetPips3" type="number" value="10" step="0.01" min="0"></div>
+                <div id="slPrevDayInfo3" class="hint" style="display:none;margin-top:6px"></div>
+                </div>
+              </div>
+              <div class="modebox full">
+                <label>Take Profit</label>
+                <select id="tpMode3">
+                  <option value="fixed">1. Stabil pips</option>
+                  <option value="frameOffset">2. Çərçivədən ± pips</option>
+                  <option value="time">3. Vaxtda bağla</option>
+                   <option value="prevDayLow">4. Əvvəlki günün minimumu (Low)</option>
+                   <option value="prevDayHigh">5. Əvvəlki günün maksimumu (High)</option>
+                </select>
+                <div id="tpFixedWrap3" class="fields">
+                  <div class="full"><label>Stabil TP (pips)</label><input id="tpFixed3" type="number" value="10" step="0.01" min="0"></div>
+                </div>
+                <div id="tpTimeWrap3" class="fields" style="display:none">
+                  <div class="full"><label>Bağlanma vaxtı</label><input id="tpTime3" type="time" value="23:30"></div>
+                </div>
+                <div id="tpOffsetWrap3" class="fields" style="display:none">
+                  <div><label>Səviyyə</label><select id="tpOffsetLevel3"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="tpOffsetDir3"><option value="above">Yuxarı</option><option value="below">Aşağı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="tpOffsetPips3" type="number" value="10" step="0.01" min="0"></div>
+                <div id="tpPrevDayInfo3" class="hint" style="display:none;margin-top:6px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SÜTUN 3: Qayda 2 və Qayda 4 -->
+    <div class="column">
+      <div class="panel" style="padding:8px">
+        <h2>Backtest Qaydaları (Sağ)</h2>
+        <!-- QAYDA 2 -->
+        <div class="rule-card">
+          <div class="rule-header">
+            <h2 style="font-size:13px;margin:0">Qayda 2</h2>
+            <label class="rule-toggle"><input type="checkbox" id="active2" checked onchange="toggleRuleAccordion(2)"> Aktiv</label>
+          </div>
+          <div id="ruleBody2">
+            <div class="fields">
+              <div><label>İstiqamət</label><select id="side2"><option value="sell">SELL</option><option value="buy">BUY</option></select></div>
+              <div><label>Giriş tipi</label><select id="entryType2"><option value="time">Müəyyən vaxt</option><option value="interval" selected>Intervalda</option></select></div>
+              <div id="timeWrap2" style="display:none" class="full"><label>Giriş vaxtı</label><input id="time2" type="time" value="13:30"></div>
+              <div id="intervalStartWrap2"><label>Int. başlanğıc</label><input id="intervalStart2" type="time" value="04:00"></div>
+              <div id="intervalEndWrap2"><label>Int. son</label><input id="intervalEnd2" type="time" value="11:30"></div>
+              <div class="modebox full" id="entryPointPanel2">
+                <div class="tf-wrap"><label>Giriş nöqtəsi<span class="tf-warn" id="tfWarn2" tabindex="0" role="note" aria-label="Xəbərdarlıq"><span class="tf-ico">!</span><span class="tf-tip">Daha dəqiq nəticələrin əldə olunması üçün kiçik taymfreym (məsələn, 1 dəqiqəlik TF) istifadə olunması məsləhətdir 🧐</span></span></label></div>
+                <select id="entryPointMode2">
+                  <option value="frameLevel">1. Çərçivə Min/Maks</option>
+                  <option value="frameOffset">2. Çərçivədən ± pips</option>
+                  <option value="buyStopLimit">3. Buy Stop Limit</option>
+                  <option value="sellStopLimit">4. Sell Stop Limit</option>
+                </select>
+                <div id="entryLevelWrap2" class="fields" style="margin-top:6px">
+                  <div class="full"><label>Səviyyə</label><select id="entryLevel2"><option value="min">Min</option><option value="max">Max</option><option value="maxMinus">Max − pips</option><option value="minPlus">Min + pips</option></select></div><div id="entryLevelPipsWrap2" class="full" style="display:none"><label>Məsafə (pips)</label><input id="entryLevelPips2" type="number" value="10" step="0.01" min="0"></div>
+                </div>
+                <div id="entryOffsetWrap2" class="fields" style="display:none;margin-top:6px">
+                  <div><label>Səviyyə</label><select id="entryOffsetLevel2"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="entryOffsetDir2"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="entryOffsetPips2" type="number" value="20" step="0.01" min="0"></div>
+                </div>
+                <div class="close-filter">
+                  <label class="close-filter-item"><input type="checkbox" id="reqCloseBelowMin2"> min-dən aşağı bağlandıqda<span class="cf-pips-wrap" id="reqCloseBelowPipsWrap2" style="display:none"><span class="cf-sign">−</span><input type="number" id="reqCloseBelowPips2" class="cf-pips-input" value="0" min="0" step="0.01" title="Ən azı bu qədər pips aşağı bağlanmalıdır (0 = məsafənin əhəmiyyəti yoxdur)"></span></label>
+                  <label class="close-filter-item"><input type="checkbox" id="reqCloseAboveMax2"> max-dan yuxarı bağlandıqda<span class="cf-pips-wrap" id="reqCloseAbovePipsWrap2" style="display:none"><span class="cf-sign">+</span><input type="number" id="reqCloseAbovePips2" class="cf-pips-input" value="0" min="0" step="0.01" title="Ən azı bu qədər pips yuxarı bağlanmalıdır (0 = məsafənin əhəmiyyəti yoxdur)"></span></label>
+                </div>
+                <div id="stopPriceBox2" class="fields" style="display:none;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)">
+                  <div class="full"><label>Stop Price (Tətik qiyməti)</label>
+                    <select id="entryStopPriceMode2">
+                      <option value="frameLevel">1. Çərçivə Min/Maks</option>
+                      <option value="frameOffset">2. Çərçivədən ± pips</option>
+                    </select>
+                  </div>
+                  <div id="entryStopLevelWrap2" class="fields full" style="margin-top:6px">
+                    <div class="full"><label>Səviyyə</label><select id="entryStopLevel2"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  </div>
+                  <div id="entryStopOffsetWrap2" class="fields full" style="display:none;margin-top:6px">
+                    <div><label>Səviyyə</label><select id="entryStopOffsetLevel2"><option value="min">Min</option><option value="max">Max</option></select></div>
+                    <div><label>İstiqamət</label><select id="entryStopOffsetDir2"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                    <div class="full"><label>Məsafə (pips)</label><input id="entryStopOffsetPips2" type="number" value="10" step="0.01" min="0"></div>
+                  </div>
+                  <div class="hint" id="stopLimitCheck2"></div>
+                </div>
+              </div>
+              <div class="modebox full">
+                <label>Stop Loss</label>
+                <select id="slMode2">
+                  <option value="fixed">1. Stabil pips</option>
+                  <option value="frameLevel">2. Çərçivə səviyyəsi</option>
+                  <option value="frameOffset">3. Çərçivədən ± pips</option>
+                   <option value="prevDayLow">4. Əvvəlki günün minimumu (Low)</option>
+                   <option value="prevDayHigh">5. Əvvəlki günün maksimumu (High)</option>
+                </select>
+                <div id="slFixedWrap2" class="fields">
+                  <div class="full"><label>Stabil SL (pips)</label><input id="slFixed2" type="number" value="20" step="0.01" min="0"></div>
+                </div>
+                <div id="slLevelWrap2" class="fields" style="display:none">
+                  <div class="full"><label>Səviyyə</label><select id="slLevel2"><option value="min">Min</option><option value="max">Max</option></select></div>
+                </div>
+                <div id="slOffsetWrap2" class="fields" style="display:none">
+                  <div><label>Səviyyə</label><select id="slOffsetLevel2"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="slOffsetDir2"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="slOffsetPips2" type="number" value="20" step="0.01" min="0"></div>
+                <div id="slPrevDayInfo2" class="hint" style="display:none;margin-top:6px"></div>
+                </div>
+              </div>
+              <div class="modebox full">
+                <label>Take Profit</label>
+                <select id="tpMode2">
+                  <option value="fixed">1. Stabil pips</option>
+                  <option value="frameOffset">2. Çərçivədən ± pips</option>
+                  <option value="time">3. Vaxtda bağla</option>
+                   <option value="prevDayLow">4. Əvvəlki günün minimumu (Low)</option>
+                   <option value="prevDayHigh">5. Əvvəlki günün maksimumu (High)</option>
+                </select>
+                <div id="tpFixedWrap2" class="fields">
+                  <div class="full"><label>Stabil TP (pips)</label><input id="tpFixed2" type="number" value="20" step="0.01" min="0"></div>
+                </div>
+                <div id="tpTimeWrap2" class="fields" style="display:none">
+                  <div class="full"><label>Bağlanma vaxtı</label><input id="tpTime2" type="time" value="23:30"></div>
+                </div>
+                <div id="tpOffsetWrap2" class="fields" style="display:none">
+                  <div><label>Səviyyə</label><select id="tpOffsetLevel2"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="tpOffsetDir2"><option value="above">Yuxarı</option><option value="below">Aşağı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="tpOffsetPips2" type="number" value="20" step="0.01" min="0"></div>
+                <div id="tpPrevDayInfo2" class="hint" style="display:none;margin-top:6px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- QAYDA 4 -->
+        <div class="rule-card">
+          <div class="rule-header">
+            <h2 style="font-size:13px;margin:0">Qayda 4</h2>
+            <label class="rule-toggle"><input type="checkbox" id="active4" onchange="toggleRuleAccordion(4)"> Aktiv et</label>
+          </div>
+          <div id="ruleBody4" style="display:none">
+            <div class="fields">
+              <div><label>İstiqamət</label><select id="side4"><option value="sell">SELL</option><option value="buy">BUY</option></select></div>
+              <div><label>Giriş tipi</label><select id="entryType4"><option value="time">Müəyyən vaxt</option><option value="interval" selected>Intervalda</option></select></div>
+              <div id="timeWrap4" style="display:none" class="full"><label>Giriş vaxtı</label><input id="time4" type="time" value="13:30"></div>
+              <div id="intervalStartWrap4"><label>Int. başlanğıc</label><input id="intervalStart4" type="time" value="04:00"></div>
+              <div id="intervalEndWrap4"><label>Int. son</label><input id="intervalEnd4" type="time" value="11:30"></div>
+              <div class="modebox full" id="entryPointPanel4">
+                <div class="tf-wrap"><label>Giriş nöqtəsi<span class="tf-warn" id="tfWarn4" tabindex="0" role="note" aria-label="Xəbərdarlıq"><span class="tf-ico">!</span><span class="tf-tip">Daha dəqiq nəticələrin əldə olunması üçün kiçik taymfreym (məsələn, 1 dəqiqəlik TF) istifadə olunması məsləhətdir 🧐</span></span></label></div>
+                <select id="entryPointMode4">
+                  <option value="frameLevel">1. Çərçivə Min/Maks</option>
+                  <option value="frameOffset">2. Çərçivədən ± pips</option>
+                  <option value="buyStopLimit">3. Buy Stop Limit</option>
+                  <option value="sellStopLimit">4. Sell Stop Limit</option>
+                </select>
+                <div id="entryLevelWrap4" class="fields" style="margin-top:6px">
+                  <div class="full"><label>Səviyyə</label><select id="entryLevel4"><option value="min">Min</option><option value="max">Max</option><option value="maxMinus">Max − pips</option><option value="minPlus">Min + pips</option></select></div><div id="entryLevelPipsWrap4" class="full" style="display:none"><label>Məsafə (pips)</label><input id="entryLevelPips4" type="number" value="10" step="0.01" min="0"></div>
+                </div>
+                <div id="entryOffsetWrap4" class="fields" style="display:none;margin-top:6px">
+                  <div><label>Səviyyə</label><select id="entryOffsetLevel4"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="entryOffsetDir4"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="entryOffsetPips4" type="number" value="20" step="0.01" min="0"></div>
+                </div>
+                <div class="close-filter">
+                  <label class="close-filter-item"><input type="checkbox" id="reqCloseBelowMin4"> min-dən aşağı bağlandıqda<span class="cf-pips-wrap" id="reqCloseBelowPipsWrap4" style="display:none"><span class="cf-sign">−</span><input type="number" id="reqCloseBelowPips4" class="cf-pips-input" value="0" min="0" step="0.01" title="Ən azı bu qədər pips aşağı bağlanmalıdır (0 = məsafənin əhəmiyyəti yoxdur)"></span></label>
+                  <label class="close-filter-item"><input type="checkbox" id="reqCloseAboveMax4"> max-dan yuxarı bağlandıqda<span class="cf-pips-wrap" id="reqCloseAbovePipsWrap4" style="display:none"><span class="cf-sign">+</span><input type="number" id="reqCloseAbovePips4" class="cf-pips-input" value="0" min="0" step="0.01" title="Ən azı bu qədər pips yuxarı bağlanmalıdır (0 = məsafənin əhəmiyyəti yoxdur)"></span></label>
+                </div>
+                <div id="stopPriceBox4" class="fields" style="display:none;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)">
+                  <div class="full"><label>Stop Price (Tətik qiyməti)</label>
+                    <select id="entryStopPriceMode4">
+                      <option value="frameLevel">1. Çərçivə Min/Maks</option>
+                      <option value="frameOffset">2. Çərçivədən ± pips</option>
+                    </select>
+                  </div>
+                  <div id="entryStopLevelWrap4" class="fields full" style="margin-top:6px">
+                    <div class="full"><label>Səviyyə</label><select id="entryStopLevel4"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  </div>
+                  <div id="entryStopOffsetWrap4" class="fields full" style="display:none;margin-top:6px">
+                    <div><label>Səviyyə</label><select id="entryStopOffsetLevel4"><option value="min">Min</option><option value="max">Max</option></select></div>
+                    <div><label>İstiqamət</label><select id="entryStopOffsetDir4"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                    <div class="full"><label>Məsafə (pips)</label><input id="entryStopOffsetPips4" type="number" value="10" step="0.01" min="0"></div>
+                  </div>
+                  <div class="hint" id="stopLimitCheck4"></div>
+                </div>
+              </div>
+              <div class="modebox full">
+                <label>Stop Loss</label>
+                <select id="slMode4">
+                  <option value="fixed">1. Stabil pips</option>
+                  <option value="frameLevel">2. Çərçivə səviyyəsi</option>
+                  <option value="frameOffset">3. Çərçivədən ± pips</option>
+                   <option value="prevDayLow">4. Əvvəlki günün minimumu (Low)</option>
+                   <option value="prevDayHigh">5. Əvvəlki günün maksimumu (High)</option>
+                </select>
+                <div id="slFixedWrap4" class="fields">
+                  <div class="full"><label>Stabil SL (pips)</label><input id="slFixed4" type="number" value="20" step="0.01" min="0"></div>
+                </div>
+                <div id="slLevelWrap4" class="fields" style="display:none">
+                  <div class="full"><label>Səviyyə</label><select id="slLevel4"><option value="min">Min</option><option value="max">Max</option></select></div>
+                </div>
+                <div id="slOffsetWrap4" class="fields" style="display:none">
+                  <div><label>Səviyyə</label><select id="slOffsetLevel4"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="slOffsetDir4"><option value="below">Aşağı</option><option value="above">Yuxarı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="slOffsetPips4" type="number" value="20" step="0.01" min="0"></div>
+                <div id="slPrevDayInfo4" class="hint" style="display:none;margin-top:6px"></div>
+                </div>
+              </div>
+              <div class="modebox full">
+                <label>Take Profit</label>
+                <select id="tpMode4">
+                  <option value="fixed">1. Stabil pips</option>
+                  <option value="frameOffset">2. Çərçivədən ± pips</option>
+                  <option value="time">3. Vaxtda bağla</option>
+                   <option value="prevDayLow">4. Əvvəlki günün minimumu (Low)</option>
+                   <option value="prevDayHigh">5. Əvvəlki günün maksimumu (High)</option>
+                </select>
+                <div id="tpFixedWrap4" class="fields">
+                  <div class="full"><label>Stabil TP (pips)</label><input id="tpFixed4" type="number" value="20" step="0.01" min="0"></div>
+                </div>
+                <div id="tpTimeWrap4" class="fields" style="display:none">
+                  <div class="full"><label>Bağlanma vaxtı</label><input id="tpTime4" type="time" value="23:30"></div>
+                </div>
+                <div id="tpOffsetWrap4" class="fields" style="display:none">
+                  <div><label>Səviyyə</label><select id="tpOffsetLevel4"><option value="min">Min</option><option value="max">Max</option></select></div>
+                  <div><label>İstiqamət</label><select id="tpOffsetDir4"><option value="above">Yuxarı</option><option value="below">Aşağı</option></select></div>
+                  <div class="full"><label>Məsafə (pips)</label><input id="tpOffsetPips4" type="number" value="20" step="0.01" min="0"></div>
+                <div id="tpPrevDayInfo4" class="hint" style="display:none;margin-top:6px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SÜTUN 4: Tənzimləmələr -->
+    <div class="column">
+      <div class="panel">
+        <h2>3. Tənzimləmələr</h2>
+        <div class="actions" style="margin-bottom:10px;margin-top:0"><button class="primary" id="run" style="flex:1">Backtest-i hesabla</button><button class="secondary" id="reset">Sıfırla</button></div>
+        <div class="fields">
+          <div class="full"><label>Giriş üsulu (vaxt)</label><select id="entryMode"><option value="after">İlk uyğun şam (vaxt ≥ giriş)</option><option value="exact">Dəqiq vaxt</option></select></div>
+          <div><label>Lot</label><input id="lot" type="number" value="0.01" step="0.01" min="0.0001"></div>
+          <div><label>Contract size</label><input id="contract" type="number" value="100" step="1" min="0.0001"></div>
+          <div><label>Komissiya ($)</label><input id="commission" type="number" value="0" step="0.01" min="0"></div>
+          <div><label>Slippage</label><input id="slippage" type="number" value="0" step="0.00001" min="0"></div>
+          <div class="full"><label>Ambiguous candle</label><select id="ambiguous"><option value="sl">SL-first (konservativ)</option><option value="tp">TP-first</option><option value="skip">Trade-i keç</option></select></div>
+          <div class="full">
+            <label class="close-filter-item" style="font-size:12px;color:var(--text)"><input type="checkbox" id="respectOpen"> Açıq mövqelər nəzərə alınsın</label>
+            <div class="hint">Aktiv olduqda: qayda üzrə əvvəlki mövqe hələ açıqdırsa, həmin qaydada yeni mövqe açılmır və atlanan əməliyyatlar Equity curve panelində göstərilir. Aktiv deyilsə: hər gün yeni mövqe açılır.</div>
+          </div>
+          <div><label>Başlanğıc</label><input id="from" type="date"></div>
+          <div><label>Son tarix</label><input id="to" type="date"></div>
+          <div class="full" id="dataInfoBox" style="display:none"><div class="hint" id="dataInfo" style="margin-top:0"></div></div>
+          <div><label>Həftənin günləri<span class="tf-warn" id="daysMonthsWarn" tabindex="0" role="note" aria-label="Ay və gün kombinasiyası məlumatı"><span class="tf-ico">i</span><span class="tf-tip" id="daysMonthsTip">—</span></span></label><select id="days" multiple size="5">
+            <option value="1" selected>Bazar ertəsi</option><option value="2" selected>Çərşənbə axşamı</option><option value="3" selected>Çərşənbə</option><option value="4" selected>Cümə axşamı</option><option value="5" selected>Cümə</option>
+          </select></div>
+          <div><label>Aylar</label><select id="months" multiple size="5">
+            <option value="1">Yanvar</option><option value="2">Fevral</option><option value="3">Mart</option><option value="4">Aprel</option><option value="5">May</option><option value="6">İyun</option><option value="7">İyul</option><option value="8">Avqust</option><option value="9">Sentyabr</option><option value="10">Oktyabr</option><option value="11">Noyabr</option><option value="12">Dekabr</option>
+          </select><div class="hint">Boş buraxılsa, bütün aylar hesaba alınır.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALT PANEL: Equity Curve və Trade Hesabatı -->
+  <div class="bottom-section">
+    <div class="panel" style="margin:0">
+      <h2>Equity curve</h2><canvas id="chart" class="chart"></canvas>
+      <div class="note" id="summary">CSV yüklədikdən sonra Backtest-i hesabla düyməsini basın.</div>
+      <div id="skippedBox" style="display:none;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><h2 style="margin:0">Nəzərə alınmayan əməliyyatlar</h2><span class="pill" id="skippedCount">0</span></div>
+        <div class="note" id="skippedNote"></div>
+        <div class="tablewrap" style="margin-top:8px"><table id="skippedTrades"><thead><tr>
+          <th>Tarix</th><th>Qayda</th><th>Entry</th><th>Exit</th><th>Side</th><th>Result</th><th>P&L $</th><th>Entry time</th><th>Exit time</th><th>Açıq mövqe (giriş → çıxış)</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin:0">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><h2 style="margin:0">Trade hesabatı</h2><button class="secondary" id="download" disabled>CSV ixrac et</button></div>
+      <div class="tablewrap" style="margin-top:8px"><table id="trades"><thead><tr>
+        <th>Tarix</th><th>Qayda</th><th>Entry</th><th>Exit</th><th>Side</th><th>Result</th><th>P&L $</th><th>Entry time</th><th>Exit time</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let rows=[], results=[], lastCsv='';
+// Açıq mövqe nəzarəti üçün köməkçi dəyişənlər (bax: run() və simulateTrade)
+let lastTradeUnresolved=false;   // son simulateTrade "to" tarixinədək bağlanmadısa true
+let skippedBusy=0;               // eyni qayda üçün açıq mövqe olduğu səbəbdən keçilən siqnalların sayı
+let skippedTrades=[];            // "Açıq mövqelər nəzərə alınsın" aktivdirsə: nəzərə alınmayan əməliyyatların siyahısı
+let skippedActive=false;         // son hesablama zamanı həmin punkt aktiv idimi
+
+function dateKey(d) {
+  return d.getUTCFullYear() + '-' + 
+         String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + 
+         String(d.getUTCDate()).padStart(2, '0');
+}
+
+/* ============================================================
+ * YÜKLƏNƏN DATA HAQQINDA MƏLUMAT (əlavə, könüllü funksiya)
+ * Mövcud heç bir hesablamaya toxunmur — yalnız "Tənzimləmələr"
+ * panelində Başlanğıc/Son tarix sahələrinin altında məlumat göstərir.
+ * ============================================================ */
+function detectTimeframeMinutes(){
+  if(rows.length<3) return null;
+  const freq=new Map();
+  for(let i=1;i<rows.length;i++){
+    const dt=Math.round((rows[i].d-rows[i-1].d)/60000);
+    // Həftəsonu/sessiya fasilələrini (3 saatdan böyük araları) tezlik hesabına qatmırıq,
+    // əks halda ən çox rast gəlinən (əsl) bar intervalı təhrif olunar.
+    if(dt>0 && dt<=180) freq.set(dt,(freq.get(dt)||0)+1);
+  }
+  if(!freq.size) return null;
+  let best=null,bestCount=-1;
+  freq.forEach((cnt,val)=>{ if(cnt>bestCount){bestCount=cnt;best=val} });
+  return best;
+}
+function timeframeLabel(min){
+  if(min==null) return 'Naməlum';
+  const map={1:'M1 (1 dəqiqəlik)',2:'M2',3:'M3',5:'M5 (5 dəqiqəlik)',10:'M10',15:'M15 (15 dəqiqəlik)',
+    30:'M30 (30 dəqiqəlik)',60:'H1 (saatlıq)',120:'H2',240:'H4 (4 saatlıq)',360:'H6',480:'H8',720:'H12',
+    1440:'D1 (günlük)',10080:'W1 (həftəlik)'};
+  return map[min] || `~${min} dəqiqəlik bar`;
+}
+function updateDataInfo(){
+  const box=$('dataInfoBox'), el=$('dataInfo');
+  if(!box||!el) return;
+  if(!rows.length){ box.style.display='none'; el.textContent=''; return; }
+  const tf=timeframeLabel(detectTimeframeMinutes());
+  const ticker=detectTicker();
+  const uniqDays=new Set(rows.map(r=>dateKey(r.d))).size;
+  let parts=[];
+  parts.push(`Dövr: ${fmt(rows[0].d)} → ${fmt(rows.at(-1).d)}`);
+  parts.push(`Taymfreym: ${tf}`);
+  if(ticker) parts.push(`Alət: ${ticker}`);
+  if(lastCsv) parts.push(`Mənbə (fayl): ${lastCsv}`);
+  parts.push(`Sətir sayı: ${rows.length.toLocaleString()}`);
+  parts.push(`Əhatə etdiyi gün sayı: ${uniqDays.toLocaleString()}`);
+  el.textContent=parts.join(' • ');
+  box.style.display='';
+}
+
+/* ============================================================
+ * HƏFTƏNİN GÜNLƏRİ + AYLAR (əlavə, könüllü funksiya)
+ * "days" seçimi ilə eyni məntiqlə işləyir və mövcud gün filtrinə
+ * (bakuDay + selectedDays) toxunmadan, ƏLAVƏ bir AND-şərti kimi
+ * run() daxilində tətbiq olunur (bax: run() içindəki months.size yoxlaması).
+ * ============================================================ */
+const MONTH_NAMES={1:'Yanvar',2:'Fevral',3:'Mart',4:'Aprel',5:'May',6:'İyun',7:'İyul',8:'Avqust',9:'Sentyabr',10:'Oktyabr',11:'Noyabr',12:'Dekabr'};
+const DAY_NAMES={0:'Bazar',1:'Bazar ertəsi',2:'Çərşənbə axşamı',3:'Çərşənbə',4:'Cümə axşamı',5:'Cümə',6:'Şənbə'};
+function selectedMonths(){ return $('months') ? [...$('months').selectedOptions].map(x=>+x.value) : []; }
+
+/* Ay(lar) seçildikdə Başlanğıc/Son tarix sahələrini avtomatik, faktiki
+ * yüklənmiş datanın hüdudları daxilində, seçilmiş ay(lar)ın əhatə etdiyi
+ * ən erkən/ən son tarixə tənzimləyir. Aylar seçimi boşaldılanda tarix
+ * sahələrinə toxunulmur (istifadəçinin əl ilə etdiyi dəyişiklik qorunur). */
+function autoSetDateRangeForMonths(){
+  const monthsSel=selectedMonths();
+  if(monthsSel.length && rows.length){
+    const monthSet=new Set(monthsSel);
+    let minD=null,maxD=null;
+    for(const r of rows){
+      if(monthSet.has(r.d.getUTCMonth()+1)){
+        if(!minD||r.d<minD) minD=r.d;
+        if(!maxD||r.d>maxD) maxD=r.d;
+      }
+    }
+    if(minD && maxD){
+      $('from').value=dateKey(minD);
+      $('to').value=dateKey(maxD);
+      updateFrameStatus();
+    }
+  }
+  updateDaysMonthsWarning();
+}
+
+/* Gün + Ay kombinasiyası eyni anda aktiv olduqda kiçik "i" xəbərdarlıq
+ * işarəsini göstərir və üzərinə kursor gətirildikdə (CSS :hover/:focus)
+ * konkret hansı gün+ay kombinasiyasının hesaba alınacağını izah edir. */
+function updateDaysMonthsWarning(){
+  const warnEl=$('daysMonthsWarn'), tipEl=$('daysMonthsTip');
+  if(!warnEl||!tipEl) return;
+  const daysSel=selectedDays();
+  const monthsSel=selectedMonths();
+  const show = monthsSel.length>0 && daysSel.length>0;
+  warnEl.classList.toggle('show', show);
+  if(!show){ tipEl.textContent='—'; return; }
+  const dayNames=daysSel.slice().sort((a,b)=>a-b).map(d=>DAY_NAMES[d]||d).join(', ');
+  const monthNames=monthsSel.slice().sort((a,b)=>a-b).map(m=>MONTH_NAMES[m]||m).join(', ');
+  tipEl.textContent=`Yalnız bu ayların bu həftə günləri hesaba alınacaq → Aylar: ${monthNames}. Günlər: ${dayNames}.`;
+}
+
+function bakuDay(x) {
+  const d = x.d || x;
+  return d.getUTCDay();
+}
+
+function bakuMinutes(x) {
+  const d = x.d || x;
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+
+function toggleRuleAccordion(n) {
+  const active = $('active' + n).checked;
+  $('ruleBody' + n).style.display = active ? 'block' : 'none';
+}
+
+function detectDelimiter(line){let a=(line.match(/;/g)||[]).length,b=(line.match(/,/g)||[]).length,t=(line.match(/\t/g)||[]).length;return t>b&&t>a?'\t':a>b?';':','}
+function splitCSV(text,delim){
+  const out=[];let row=[],cell='',quote=false;
+  for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];
+    if(c==='"'&&quote&&n==='"'){cell+='"';i++;continue}
+    if(c==='"'){quote=!quote;continue}
+    if(c===delim&&!quote){row.push(cell.trim());cell='';continue}
+    if((c==='\n'||c==='\r')&&!quote){if(c==='\r'&&n==='\n')i++;row.push(cell.trim());cell='';if(row.some(x=>x!==''))out.push(row);row=[];continue}
+    cell+=c;
+  }
+  if(cell!==''||row.length){row.push(cell.trim());out.push(row)} return out;
+}
+function num(v){if(v==null)return NaN;let s=String(v).trim().replace(/\s/g,'');if(s.includes(',')&&!s.includes('.'))s=s.replace(',','.');else s=s.replace(/,/g,'');return Number(s)}
+function findCol(headers, names){const h=headers.map(x=>String(x).replace(/^\uFEFF/,'').toLowerCase().replace(/[^a-z0-9]/g,''));for(const n of names){const target=String(n).toLowerCase().replace(/[^a-z0-9]/g,'');const i=h.indexOf(target);if(i>=0)return i}return -1}
+
+/* 
+ * TIME MODEL
+ * MT5 CSV timestamp-ləri bu faylda broker/MT5 vaxtıdır (UTC+3).
+ * Bakı vaxtı isə bu məlumat dövründə UTC+4-dür.
+ *
+ * Proqram daxilində Date obyektləri "Bakı divar saatını UTC sahələrində"
+ * saxlamaq üçün istifadə olunur. Buna görə bütün CSV timestamp-lərinə
+ * eyni +1 saat korreksiyası tətbiq edilir. Sonra frame, entry, TP-time,
+ * çıxış və tarix filtrləri eyni vaxt bazasında işləyir.
+ */
+const MT5_TO_BAKU_MINUTES = 60;
+
+/*
+ * AVTOMATIK SAAT QURŞAĞI (əlavə, könüllü funksiya)
+ * -------------------------------------------------
+ * Yuxarıdakı MT5_TO_BAKU_MINUTES=60 korreksiyası dəyişdirilmir və "Avtomatik
+ * saat qurşağı" qutusu işarələnmədikdə proqram tam olaraq əvvəlki kimi (sabit
+ * +1 saat) işləyir.
+ *
+ * Qutu işarələndikdə: broker/MT5 serverinin GMT+2 (qış/standart vaxt) və
+ * GMT+3 (yay/DST) arasında ABŞ-ın yay/qış vaxtı təqviminə uyğun keçid etdiyi
+ * qəbul edilir (bir çox MT5 brokerinin konvensiyası). Bakı ilin bütün
+ * fəsillərində sabit UTC+4 olduğundan:
+ *   - ABŞ DST (yay vaxtı) dövründə broker fərqi Bakıdan 1 saatdır → +60 dəq
+ *     (indiki sabit korreksiya ilə eynidir, dəyişmir).
+ *   - ABŞ standart (qış) vaxtı dövründə broker fərqi Bakıdan 2 saatdır → +120 dəq.
+ * ABŞ DST keçid tarixləri: martın 2-ci bazar günü saat 02:00-dan (yay vaxtına
+ * keçid) noyabrın 1-ci bazar günü saat 02:00-a qədər (qış vaxtına qayıdış).
+ * Broker "aktiv/deaktiv" anının dəqiq dəqiqəsi brokerdən brokerə bir qədər
+ * fərqlənə bilər — bu, ümumi qəbul edilmiş ABŞ təqvim qaydasına əsaslanan
+ * ən yaxın təxmindir.
+ */
+function nthSundayOfMonth(year, month1to12, n){
+  const first = new Date(Date.UTC(year, month1to12-1, 1));
+  const dow = first.getUTCDay(); // 0=Bazar
+  const firstSunday = 1 + ((7 - dow) % 7);
+  return firstSunday + (n-1)*7;
+}
+function isUsDstAtBrokerTime(y,mo,da,hh,mm){
+  const marchSunday2 = nthSundayOfMonth(y,3,2);
+  const novSunday1   = nthSundayOfMonth(y,11,1);
+  const dstStart = Date.UTC(y,2,marchSunday2,2,0);   // mart, 2-ci bazar, 02:00
+  const dstEnd   = Date.UTC(y,10,novSunday1,2,0);    // noyabr, 1-ci bazar, 02:00
+  const t = Date.UTC(y,mo-1,da,hh,mm);
+  return t>=dstStart && t<dstEnd;
+}
+function tzShiftMinutes(y,mo,da,hh,mm){
+  const autoEl=$('autoTz');
+  if(autoEl && autoEl.checked){
+    return isUsDstAtBrokerTime(y,mo,da,hh,mm) ? MT5_TO_BAKU_MINUTES : MT5_TO_BAKU_MINUTES+60;
+  }
+  // Avtomatik rejim SÖNÜK: manual seçilmiş rejimə görə BÜTÜN sətirlərə sabit korreksiya
+  // tətbiq olunur (tarixdən asılı olmadan) — bu, avto rejimin nəticələrini yoxlamaq üçün
+  // istifadəçiyə sabit müqayisə nöqtəsi verir. Default ("summer") = köhnə sabit +1 saat
+  // davranışı ilə eynidir.
+  const manualEl=$('manualTzMode');
+  const manualMode=manualEl?manualEl.value:'summer';
+  return manualMode==='winter' ? MT5_TO_BAKU_MINUTES+60 : MT5_TO_BAKU_MINUTES;
+}
+
+/* Hər iki manual rejim üçün "ilin hansı vaxtını əhatə etdiyini" göstərən mətn.
+ * Ümumi qayda (ABŞ DST təqvimi) + cari il üçün konkret nümunə tarixlər birlikdə göstərilir. */
+function dstRuleExampleText(year){
+  const marchSunday2=nthSundayOfMonth(year,3,2);
+  const novSunday1=nthSundayOfMonth(year,11,1);
+  const pad=x=>String(x).padStart(2,'0');
+  return `${pad(marchSunday2)}.03.${year} – ${pad(novSunday1)}.11.${year}`;
+}
+function manualTzModeLabelText(mode,year){
+  const example=dstRuleExampleText(year);
+  return mode==='winter'
+    ? `Qış vaxtı (Standart, broker GMT+2, Bakıdan fərq +2 saat) — Noyabrın 1-ci bazar günündən Martın 2-ci bazar gününə qədər olan dövrü təmsil edir (${year}-də yay dövrü: ${example})`
+    : `Yay vaxtı (DST, broker GMT+3, Bakıdan fərq +1 saat) — Martın 2-ci bazar günündən Noyabrın 1-ci bazar gününə qədər olan dövrü təmsil edir (${year}-də: ${example})`;
+}
+function referenceYearForTz(){
+  if(rows.length) return rows.at(-1).d.getUTCFullYear();
+  return new Date().getFullYear();
+}
+/* Canlı göstərici: "Avtomatik saat qurşağı" yazısının yanındakı (i) işarəsi üzərinə
+ * kursor gətirildikdə hazırda hansı rejimin aktiv olduğunu göstərir (siçan çəkiləndə
+ * CSS-in özü (.tf-tip) tooltip-i gizlədir, əlavə JS lazım deyil). */
+function updateTzInfoTip(){
+  const tip=$('tzInfoTip');
+  if(!tip) return;
+  const autoEl=$('autoTz');
+  const year=referenceYearForTz();
+  if(autoEl && autoEl.checked){
+    let refY,refMo,refDa;
+    if(rows.length){
+      const toVal=$('to')?$('to').value:'';
+      const parsedTo=toVal?parseBakuDateBoundary(toVal):new Date(NaN);
+      const refD=!isNaN(parsedTo)?parsedTo:rows.at(-1).d;
+      refY=refD.getUTCFullYear();refMo=refD.getUTCMonth()+1;refDa=refD.getUTCDate();
+    } else {
+      const now=new Date();
+      refY=now.getFullYear();refMo=now.getMonth()+1;refDa=now.getDate();
+    }
+    const dst=isUsDstAtBrokerTime(refY,refMo,refDa,12,0);
+    const refLabel=rows.length?`seçilmiş son günə (${String(refDa).padStart(2,'0')}.${String(refMo).padStart(2,'0')}.${refY})`:`bugünkü tarixə (${String(refDa).padStart(2,'0')}.${String(refMo).padStart(2,'0')}.${refY})`;
+    tip.textContent=`Avtomatik rejim aktivdir. ${refLabel} görə hazırda ${dst?'YAY vaxtı (broker GMT+3, Bakıdan fərq +1 saat)':'QIŞ vaxtı (broker GMT+2, Bakıdan fərq +2 saat)'} tətbiq olunur. ${dstRuleExampleText(refY)} aralığı yay dövrüdür.`;
+  } else {
+    const manualEl=$('manualTzMode');
+    const mode=manualEl?manualEl.value:'summer';
+    tip.textContent=`Manual rejim aktivdir: ${mode==='winter'?'QIŞ vaxtı (broker GMT+2, Bakıdan fərq +2 saat)':'YAY vaxtı (broker GMT+3, Bakıdan fərq +1 saat)'} — bütün sətirlərə tarixdən asılı olmadan sabit tətbiq olunur.`;
+  }
+}
+function refreshManualTzModeLabels(){
+  const sel=$('manualTzMode');
+  if(!sel) return;
+  const year=referenceYearForTz();
+  Array.from(sel.options).forEach(opt=>{ opt.textContent=manualTzModeLabelText(opt.value,year); });
+  const hint=$('manualTzModeHint');
+  if(hint) hint.textContent='Bu rejim yalnız "Avtomatik saat qurşağı" sönük olduqda tətbiq olunur və avto rejimin düzgünlüyünü yoxlamaq üçün sabit müqayisə nöqtəsi verir.';
+}
+function toggleManualTzMode(){
+  const wrap=$('manualTzModeWrap');
+  const autoEl=$('autoTz');
+  if(wrap) wrap.style.display=(autoEl && autoEl.checked)?'none':'block';
+  refreshManualTzModeLabels();
+  updateTzInfoTip();
+}
+
+function parseDateTime(date,time){
+  let s=(date||'').trim(); if(time) s+=' '+String(time).trim();
+  let y,mo,da,hh=0,mm=0;
+  const m=s.match(/(\d{1,4})[./-](\d{1,4})[./-](\d{1,4})[ T](\d{1,2}):?(\d{2})?/);
+  if(m){
+    y=+m[1]; mo=+m[2]; da=+m[3]; hh=+(m[4]||0); mm=+(m[5]||0);
+    if(y<100)y+=2000;
+    if(y<1000)[y,mo,da]=[da,mo,y];
+  } else {
+    const d0=new Date(s);
+    if(isNaN(d0)) return new Date(NaN);
+    y=d0.getUTCFullYear(); mo=d0.getUTCMonth()+1; da=d0.getUTCDate();
+    hh=d0.getUTCHours(); mm=d0.getUTCMinutes();
+  }
+  const shiftMin=tzShiftMinutes(y,mo,da,hh,mm);
+  return new Date(Date.UTC(y,mo-1,da,hh,mm)+shiftMin*60000);
+}
+
+function fmt(d){return new Intl.DateTimeFormat('az-AZ',{timeZone:'UTC',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(d)}
+function money(x){return (x>=0?'+':'')+x.toFixed(2)+' $'}
+
+function loadCsvFile(f){
+ return new Promise((resolve,reject)=>{
+  if(!f){reject(new Error('CSV faylı seçilməyib.'));return}
+  const r=new FileReader();
+  r.onerror=()=>reject(new Error('CSV faylı oxunmadı.'));
+  r.onload=()=>{
+   try{
+    const text=String(r.result||'');
+    const arr=splitCSV(text,detectDelimiter(text.split(/\r?\n/)[0]||''));
+    if(arr.length<2)throw Error('CSV boşdur.');
+    const headers=arr[0];
+    let dateI=findCol(headers,['datetime','timestamp','date/time','date']);
+    let timeI=findCol(headers,['time']);
+    const oI=findCol(headers,['open']),hI=findCol(headers,['high']),lI=findCol(headers,['low']),cI=findCol(headers,['close']);
+     const symbolI=findCol(headers,['symbol','ticker','instrument']);
+    if(oI<0||hI<0||lI<0||cI<0)throw Error('Open/High/Low/Close sütunları tapılmadı.');
+    rows=arr.slice(1).map(a=>{
+      const rawDate=dateI>=0?a[dateI]:'', rawTime=timeI>=0?a[timeI]:'';
+      const d=parseDateTime(rawDate,rawTime);
+      return {d,o:num(a[oI]),h:num(a[hI]),l:num(a[lI]),c:num(a[cI]),ticker:symbolI>=0?String(a[symbolI]||'').trim():'',rawDate,rawTime};
+    }).filter(x=>!isNaN(x.d)&&[x.o,x.h,x.l,x.c].every(Number.isFinite)).sort((a,b)=>a.d-b.d);
+    if(!rows.length)throw Error('Oxuna bilən OHLC sətiri tapılmadı.');
+    lastCsv=f.name;
+    $('fileStatus').textContent=`${f.name}: ${rows.length.toLocaleString()} sətir. ${fmt(rows[0].d)} → ${fmt(rows.at(-1).d)}`;
+    if(!$('from').value)$('from').value=dateKey(rows[0].d);
+    if(!$('to').value)$('to').value=dateKey(rows.at(-1).d);
+    updateFrameStatus();
+    updateDataInfo();
+    resolve();
+   }catch(err){rows=[];$('fileStatus').textContent='Xəta: '+err.message;updateDataInfo();reject(err)}
+  };
+  r.readAsText(f);
+ });
+}
+
+$('file').addEventListener('change',e=>{
+ const f=e.target.files[0];
+ if(!f)return;
+ loadCsvFile(f).catch(()=>{});
+});
+
+/* "Avtomatik saat qurşağı" qutusu dəyişdikdə, artıq yüklənmiş sətirləri
+ * yenidən CSV-ni oxumadan, saxlanılmış xam tarix/vaxt mətnlərindən
+ * (rawDate/rawTime) yenidən hesablayır. Başqa heç bir funksiyaya toxunmur. */
+function reapplyTimezone(){
+  if(!rows.length) return;
+  rows.forEach(r=>{ r.d = parseDateTime(r.rawDate, r.rawTime); });
+  rows.sort((a,b)=>a.d-b.d);
+  updateFrameStatus();
+}
+const autoTzEl=$('autoTz');
+if(autoTzEl) autoTzEl.addEventListener('change', ()=>{ toggleManualTzMode(); reapplyTimezone(); });
+const manualTzModeEl=$('manualTzMode');
+if(manualTzModeEl) manualTzModeEl.addEventListener('change', ()=>{ updateTzInfoTip(); reapplyTimezone(); });
+toggleManualTzMode();
+
+function updateFrameStatus(){
+  refreshManualTzModeLabels();
+  updateTzInfoTip();
+  if(!rows.length) return;
+  if($('pipMode').value === 'indicator') {$('pipSize').value = getPipSize();
+  }
+  const selectedEnd=$('to').value || dateKey(rows.at(-1).d);
+  const dayRows=rows.filter(r=>dateKey(r.d)===selectedEnd);
+  const startStr = $('frameStart').value || '02:00';
+  const endStr = $('frameEnd').value || '03:59';
+  const f=frameForDay(dayRows);
+  let text=f
+    ? `Son gün (${selectedEnd}) • Çərçivə (${startStr}–${endStr}) • High ${f.high.toFixed(5)} • Low ${f.low.toFixed(5)} • Range ${f.range.toFixed(2)} pips • 1 pip = $${+getPipValueUsd().toFixed(4)} (Lot ${$('lot').value})`
+    : `Seçilmiş son gündə (${selectedEnd}) məlumat tapılmadı.`;
+
+  // Əvvəlki günün real OHLC səviyyələri: həftəsonu kimi boş günlərdə CSV-də
+  // mövcud olan ən yaxın əvvəlki ticarət günü götürülür.
+  const prev=getPreviousDayStats(selectedEnd);
+  if(prev){
+    text += ` • Əvvəlki gün (${prev.date}) High ${prev.high.toFixed(5)} • Low ${prev.low.toFixed(5)} • Range ${prev.rangePips.toFixed(2)} pips`;
+  } else {
+    text += ` • Əvvəlki gün məlumatı yoxdur`;
+  }
+
+  $('frameStatus').textContent=text;
+  [1,2,3,4].forEach(updateStopLimitCheck);
+  [1,2,3,4].forEach(updatePreviousDayRiskInfo);
+}
+
+function selectedDays(){return [...$('days').selectedOptions].map(x=>+x.value)}
+function hm(d){return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')}
+function minutes(v){if(!v) return 0; const [h,m]=v.split(':').map(Number);return h*60+m}
+
+function parseBakuDateBoundary(v,endOfDay=false){
+  const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return new Date(NaN);
+  const y=+m[1],mo=+m[2],d=+m[3];
+  return new Date(Date.UTC(y,mo-1,d,endOfDay?23:0,endOfDay?59:0,endOfDay?59:0));
+}
+
+function toggleEntryType(n){
+  const interval=$('entryType'+n).value==='interval';$('timeWrap'+n).style.display=interval?'none':'block';
+  $('intervalStartWrap'+n).style.display=interval?'block':'none';$('intervalEndWrap'+n).style.display=interval?'block':'none';
+  // Müəyyən vaxt (entryType='time') seçildikdə mövqe həmin vaxtda bazar qiyməti ilə açılır və
+  // heç bir səviyyəyə (Çərçivə Min/Maks, ± pips, Stop Limit) ehtiyac qalmır — Giriş nöqtəsi paneli gizlənir.
+  if($('entryPointPanel'+n)) $('entryPointPanel'+n).style.display=interval?'block':'none';
+  toggleEntryPoint(n);
+}
+function isStopOrderMode(mode){return mode==='buyStopLimit'||mode==='sellStopLimit';}
+function toggleEntryLevelPips(n){
+  const w=$('entryLevelPipsWrap'+n), sel=$('entryLevel'+n);
+  if(!w||!sel) return;
+  const v=sel.value;
+  w.style.display=(v==='maxMinus'||v==='minPlus')?'block':'none';
+}
+/*
+ * "min-dən aşağı / max-dan yuxarı bağlandıqda" qutuları aktivdirsə, qarşılarında
+ * neçə pips (ən azı) məsafə tələb olunduğunu göstərən kiçik ədəd çərçivəsi görünür.
+ * Qutu aktiv deyilsə çərçivə gizlənir (dəyəri saxlanılır, hesablamaya təsiri olmur).
+ */
+function toggleCloseFilterPips(n){
+  const b=$('reqCloseBelowMin'+n), a=$('reqCloseAboveMax'+n);
+  if($('reqCloseBelowPipsWrap'+n)) $('reqCloseBelowPipsWrap'+n).style.display=(b&&b.checked)?'inline-flex':'none';
+  if($('reqCloseAbovePipsWrap'+n)) $('reqCloseAbovePipsWrap'+n).style.display=(a&&a.checked)?'inline-flex':'none';
+}
+function toggleEntryPoint(n){
+  toggleCloseFilterPips(n);
+  const mode=$('entryPointMode'+n).value;
+  const stop=isStopOrderMode(mode);
+  // Stop order rejimlərində "Səviyyə" məlumatı Limit Price rolunu oynayır və
+  // bunun üçün Səviyyə+İstiqamət+Məsafə (offset) bölməsi istifadə olunur; bu bölmənin
+  // özü və hesablama məntiqi (resolveEntryLevel-in offset budağı) heç dəyişmir.
+  $('entryLevelWrap'+n).style.display=mode==='frameLevel'?'block':'none';
+  toggleEntryLevelPips(n);
+  $('entryOffsetWrap'+n).style.display=(mode==='frameOffset'||stop)?'block':'none';
+  if($('stopPriceBox'+n)) $('stopPriceBox'+n).style.display=stop?'block':'none';
+  if($('tfWarn'+n)) $('tfWarn'+n).classList.toggle('show',stop);
+  // Panel görüntüsündə İstiqamət seçimini stop order tipinə uyğunlaşdır (yalnız görüntü rahatlığı üçün;
+  // faktiki hesablamada side mütləq entryPointMode-dan götürülür, bax: run()).
+  // Müəyyən vaxt (entryType='time') rejimində entryPointMode/Giriş nöqtəsi paneli istifadə olunmur,
+  // ona görə bu avtomatik sinxronlaşdırma da tətbiq edilmir — İstiqamət seçimi toxunulmaz qalır.
+  const isTime=$('entryType'+n)&&$('entryType'+n).value==='time';
+  if(!isTime){
+    if(mode==='buyStopLimit'&&$('side'+n)) $('side'+n).value='buy';
+    if(mode==='sellStopLimit'&&$('side'+n)) $('side'+n).value='sell';
+  }
+  updateStopLimitCheck(n);
+}
+function toggleStopPriceMode(n){
+  if(!$('entryStopPriceMode'+n)) return;
+  const mode=$('entryStopPriceMode'+n).value;
+  $('entryStopLevelWrap'+n).style.display=mode==='frameLevel'?'block':'none';
+  $('entryStopOffsetWrap'+n).style.display=mode==='frameOffset'?'block':'none';
+  updateStopLimitCheck(n);
+}
+
+/*
+ * Canlı yoxlama: seçilmiş son günün Çərçivəsinə görə hesablanan Stop Price və
+ * Limit Price-i göstərir və MT5 qaydasına (buyStopLimit: Stop>Limit, sellStopLimit:
+ * Stop<Limit) uyğun olub-olmadığını bildirir. Yalnız Stop order rejimlərində görünür;
+ * digər rejimlərə (frameLevel/frameOffset) və mövcud heç bir hesablamaya təsir etmir.
+ */
+function updateStopLimitCheck(n){
+  const el=$('stopLimitCheck'+n);
+  if(!el) return;
+  if($('entryType'+n) && $('entryType'+n).value==='time'){el.textContent='';return;}
+  const pointMode=$('entryPointMode'+n)?$('entryPointMode'+n).value:'';
+  if(!isStopOrderMode(pointMode)){el.textContent='';return;}
+  // MT5 qaydası CSV-dən asılı olmadan da yoxlanılır: Stop/Limit nisbəti bütün günlər üçün
+  // qəti səhvdirsə, dərhal qırmızı xəbərdarlıq göstərilir və hesablama bloklanır.
+  const st=stopLimitStaticStatus(n);
+  if(st.status==='invalid'){
+    el.style.color='var(--bad)';
+    el.textContent=`✖ MT5 qaydası pozulub: ${stopLimitRuleText(pointMode)}. Bu tənzimləmədə əmr heç bir gündə qəbul olunmaz — hesablama bloklanır, Stop/Limit dəyərlərini düzəldin.`;
+    return;
+  }
+  const dayNote=st.status==='depends'?' (nəticə hər günün çərçivə aralığından asılıdır; qaydaya uyğun gəlməyən günlərdə əmr rədd olunur)':'';
+  if(!rows.length){
+    if(st.status==='ok'){el.style.color='var(--good)';el.textContent='✓ MT5 qaydasına uyğundur (bütün günlər üçün).';}
+    else {el.style.color='';el.textContent='CSV yüklənəndən sonra yoxlanılacaq.'+dayNote;}
+    return;
+  }
+  const selectedEnd=$('to').value || dateKey(rows.at(-1).d);
+  const dayRows=rows.filter(r=>dateKey(r.d)===selectedEnd);
+  const frame=frameForDay(dayRows);
+  if(!frame){el.textContent='Seçilmiş son gündə məlumat tapılmadı.';el.style.color='';return;}
+  const stopPrice=resolveStopPrice(n,frame);
+  const limitPrice=resolveEntryLevel(n,frame);
+  const ok=stopLimitConstraintOk(pointMode,stopPrice,limitPrice);
+  const dirTxt=pointMode==='buyStopLimit'?'yuxarı':'aşağı';
+  if(ok){
+    el.style.color='var(--good)';
+    el.textContent=`✓ Stop ${stopPrice.toFixed(5)} • Limit ${limitPrice.toFixed(5)} — düzgündür (MT5 qaydasına uyğun)`+dayNote;
+  } else {
+    el.style.color='var(--bad)';
+    el.textContent=`⚠ Stop ${stopPrice.toFixed(5)} • Limit ${limitPrice.toFixed(5)} — Stop Price, Limit Price-dan ${dirTxt} olmalıdır. Əks halda bu cür günlərdə əmr rədd olunur və trade sayılmır.`+dayNote;
+  }
+}
+function resolveEntryLevel(n,frame){
+  const mode=$('entryPointMode'+n).value;
+  if(mode==='frameLevel'){
+    // Səviyyə: min / max / maxMinus (Maks − pips) / minPlus (Min + pips)
+    const lv=$('entryLevel'+n).value;
+    if(lv==='maxMinus') return frame.high-(+$('entryLevelPips'+n).value)*frame.pip;
+    if(lv==='minPlus') return frame.low+(+$('entryLevelPips'+n).value)*frame.pip;
+    return levelFromFrame(frame,lv);
+  }
+  const base=levelFromFrame(frame,$('entryOffsetLevel'+n).value);
+  const p=+$('entryOffsetPips'+n).value;
+  return $('entryOffsetDir'+n).value==='above' ? base+p*frame.pip : base-p*frame.pip;
+}
+function resolveStopPrice(n,frame){
+  const mode=$('entryStopPriceMode'+n).value;
+  if(mode==='frameLevel') return levelFromFrame(frame,$('entryStopLevel'+n).value);
+  const base=levelFromFrame(frame,$('entryStopOffsetLevel'+n).value);
+  const p=+$('entryStopOffsetPips'+n).value;
+  return $('entryStopOffsetDir'+n).value==='above' ? base+p*frame.pip : base-p*frame.pip;
+}
+
+/*
+ * PIP ENGINE
+ *
+ * TradingView indikatorundakı məntiqə uyğun olaraq qiymət addımı (pip size)
+ * alətin tipinə görə seçilir:
+ *   Forex: JPY -> 0.01, digər cütlüklər -> 0.0001
+ *   Commodity / Crypto / digər: 1.0
+ *
+ * ƏSAS QAYDA: bazis lotda 1 pip = dəqiq 1 USD-dir (forex 0.10 lot, digərləri 0.01 lot).
+ * P&L = pips * pip dəyəri; pip dəyəri lota mütənasib dəyişir (getPipValueUsd).
+ * Qiymət fərqi əvvəlcə pip-ə çevrilir, sonra pip dəyəri tətbiq olunur.
+ */
+function detectTicker(){
+  // Əvvəlcə CSV faylının adından mümkün simvolu götür.
+  const f=$('file')?.files?.[0];
+  const name=f?.name||lastCsv||'';
+  const stem=name.replace(/\.[^.]+$/,'').toUpperCase();
+  const known=['XAUUSD','XAGUSD','BTCUSD','ETHUSD','US30','NAS100','USTEC','SPX500','US500','GER40','DE40','UK100','XTIUSD','XBRUSD','XNGUSD','USOIL','UKOIL','BRENT','WTI'];
+  for(const t of known) if(stem.includes(t)) return t;
+  const m=stem.match(/(?:^|[_\- .])(EURUSD|GBPUSD|AUDUSD|NZDUSD|USDCAD|USDCHF|USDJPY|EURJPY|GBPJPY|AUDJPY|CADJPY|CHFJPY|EURGBP|EURAUD|GBPAUD|NZDJPY)(?:$|[_\- .])/);
+  if(m) return m[1];
+  // CSV-da Symbol/Ticker sütunu varsa onu istifadə et.
+  if(rows[0]?.ticker) return rows[0].ticker;
+
+  // Fayl adı və CSV header-də simvol yoxdursa, qiymət aralığından yalnız
+  // ehtiyat heuristika kimi istifadə olunur. Manual rejimdə bu hissə işləməz.
+  const sample=rows[0]?.c;
+  if(Number.isFinite(sample)){
+    if(sample<2) return 'EURUSD';       // adi 5-digit forex
+    if(sample>=20 && sample<500) return 'USDJPY'; // JPY tipli forex
+    if(sample>=500 && sample<5000) return 'XAUUSD'; // qızıl/metal tipli
+    if(sample>=5000) return 'BTCUSD';   // kripto tipli
+  }
+  return '';
+}
+
+function getAssetType(ticker){
+  const t=String(ticker||'').toUpperCase();
+  if(/^(EUR|GBP|AUD|NZD|USD|CAD|CHF|JPY){2}$/.test(t)) return 'forex';
+  if(/XAU|XAG|XPT|XPD|XTI|XBR|XNG|WTI|BRENT|OIL|NGAS/.test(t)) return 'commodity';
+  if(/BTC|ETH|XRP|SOL|ADA|DOGE|BNB|LTC/.test(t)) return 'crypto';
+  if(/USD|JPY|EUR|GBP|AUD|NZD|CAD|CHF/.test(t) && t.length===6) return 'forex';
+  if(/USDT|USDC/.test(t)) return 'crypto';
+  return 'other';
+}
+
+function getEffectivePipSize(ticker, assetType, autoPip=true, manualPipSize=1.0){
+  if(!autoPip) return manualPipSize;
+  if(String(assetType).toLowerCase()==='forex'){
+    return String(ticker||'').toUpperCase().includes('JPY') ? 0.01 : 0.0001;
+  }
+  return 1.0;
+}
+
+function getPipSize(){
+  const mode=$('pipMode').value;
+  const manual=+$('pipSize').value;
+  if(mode==='manual') return manual>0 ? manual : 0.0001;
+  const ticker=detectTicker();
+  const assetType=getAssetType(ticker);
+  const pip=getEffectivePipSize(ticker,assetType,true,manual||1);
+  if($('pipSize')) $('pipSize').value=pip;
+  return pip;
+}
+
+function priceToPips(priceDistance){
+  const pip=getPipSize();
+  return pip>0 ? priceDistance/pip : 0;
+}
+
+/*
+ * 1 pip = $1 PRİNSİPİ (lota görə avtomatik):
+ *   Bazis lotda 1 pip = dəqiq $1; lot dəyişdikcə pip dəyəri xətti dəyişir.
+ *   Forex (bütün cütlüklər): bazis lot 0.10  -> 0.10 lot: $1/pip, 0.01 lot: $0.10/pip
+ *   Metal, neft, kripto, indeks və digər: bazis lot 0.01 -> 0.01 lot: $1/pip, 0.10 lot: $10/pip
+ * Alət tipi CSV faylının adından / Symbol sütunundan avtomatik təyin olunur.
+ */
+function getPipValueUsd(){
+  const lot=+$('lot').value;
+  const baseLot=getAssetType(detectTicker())==='forex'?0.1:0.01;
+  return Math.round(lot/baseLot*1e8)/1e8;
+}
+function pipsToUsd(pips){
+  return pips*getPipValueUsd();
+}
+
+function frameForDay(dayRows){
+  if(!dayRows || !dayRows.length) return null;
+  const startM = minutes($('frameStart').value || '02:00');
+  const endM = minutes($('frameEnd').value || '03:59');
+  
+  const candidates = dayRows.filter(r => {
+    const m = bakuMinutes(r);
+    if(startM <= endM) {
+      return m >= startM && m <= endM;
+    } else {
+      return m >= startM || m <= endM;
+    }
+  });
+
+  if(!candidates.length) return null;
+  const high=Math.max(...candidates.map(r=>r.h));
+  const low=Math.min(...candidates.map(r=>r.l));
+  const pip=getPipSize();
+  return {high,low,range:(high-low)/pip,pip};
+}
+
+function levelFromFrame(frame,level){return level==='max'?frame.high:frame.low;}
+
+function getPreviousDayStats(currentDateStr){
+  if(!rows.length || !currentDateStr) return null;
+  const dates=[...new Set(rows.map(r=>dateKey(r.d)))].sort();
+  let prevDate=null;
+  for(const d of dates){
+    if(d<currentDateStr) prevDate=d;
+    else if(d>=currentDateStr) break;
+  }
+  if(!prevDate) return null;
+  const rs=rows.filter(r=>dateKey(r.d)===prevDate);
+  if(!rs.length) return null;
+  const high=Math.max(...rs.map(r=>r.h));
+  const low=Math.min(...rs.map(r=>r.l));
+  const pip=getPipSize();
+  return {date:prevDate,high,low,rangePips:pip>0?(high-low)/pip:pNaN};
+}
+
+function previousDayStatsForEntry(entryRow){
+  return getPreviousDayStats(dateKey(entryRow.d));
+}
+
+function updatePreviousDayRiskInfo(n){
+  const prev=getPreviousDayStats($('to').value || (rows.length?dateKey(rows.at(-1).d):''));
+  const sm=$('slMode'+n)?.value;
+  const tm=$('tpMode'+n)?.value;
+  const slInfo=$('slPrevDayInfo'+n);
+  const tpInfo=$('tpPrevDayInfo'+n);
+  const fmtPrev=p=>p?`Əvvəlki gün (${p.date}) — Low ${p.low.toFixed(5)} • High ${p.high.toFixed(5)} • Range ${p.rangePips.toFixed(2)} pips`:'Əvvəlki gün məlumatı yoxdur.';
+  if(slInfo) slInfo.textContent=(sm==='prevDayLow'||sm==='prevDayHigh')?fmtPrev(prev):'';
+  if(tpInfo) tpInfo.textContent=(tm==='prevDayLow'||tm==='prevDayHigh')?fmtPrev(prev):'';
+}
+
+function resolveDistance(row,n,kind,side,frame){
+  const prefix=kind==='sl'?'sl':'tp';
+  const mode=$(prefix+'Mode'+n).value;
+  if(mode==='fixed'){
+    const p=+$((prefix==='sl'?'slFixed':'tpFixed')+n).value;
+    return {priceDistance:p*frame.pip};
+  }
+  if(mode==='frameLevel' && prefix==='sl'){
+    const level=$(prefix+'Level'+n).value;
+    return {absolute:levelFromFrame(frame,level)};
+  }
+  if(mode==='prevDayLow' || mode==='prevDayHigh'){
+    const prev=previousDayStatsForEntry(row);
+    if(!prev) return {invalid:true};
+    return {absolute:mode==='prevDayLow'?prev.low:prev.high};
+  }
+  const level=$(prefix+'OffsetLevel'+n).value;
+  const dir=$(prefix+'OffsetDir'+n).value;
+  const p=+$(prefix+'OffsetPips'+n).value;
+  const base=levelFromFrame(frame,level);
+  return {absolute:dir==='above'?base+p*frame.pip:base-p*frame.pip};
+}
+
+function toggleRiskMode(n){
+  const sm=$('slMode'+n).value;
+  $('slFixedWrap'+n).style.display=sm==='fixed'?'block':'none';
+  $('slLevelWrap'+n).style.display=sm==='frameLevel'?'block':'none';
+  $('slOffsetWrap'+n).style.display=sm==='frameOffset'?'block':'none';
+  if($('slPrevDayInfo'+n)) $('slPrevDayInfo'+n).style.display=(sm==='prevDayLow'||sm==='prevDayHigh')?'block':'none';
+  const tm=$('tpMode'+n).value;
+  $('tpFixedWrap'+n).style.display=tm==='fixed'?'block':'none';
+  $('tpOffsetWrap'+n).style.display=tm==='frameOffset'?'block':'none';
+  $('tpTimeWrap'+n).style.display=tm==='time'?'block':'none';
+  if($('tpPrevDayInfo'+n)) $('tpPrevDayInfo'+n).style.display=(tm==='prevDayLow'||tm==='prevDayHigh')?'block':'none';
+  updatePreviousDayRiskInfo(n);
+}
+
+/*
+ * MÜƏYYƏN VAXT (entryType='time'): mövqe seçilmiş vaxtda BAZAR QİYMƏTİ ilə açılır (Giriş nöqtəsi
+ * panelinin heç bir seçiminə — Çərçivə Min/Maks, ± pips, Stop Limit, "min/max-dan bağlanma" filtrinə —
+ * ehtiyac yoxdur, çünki mövqe artıq həmin an bazar qiymətindən açılır). "Dəqiq vaxt" rejimində yalnız
+ * seçilmiş vaxta düşən şam yoxlanılır (şamın open-i ilə); "Vaxtdan sonra" rejimində seçilmiş vaxta
+ * çatan/ keçən İLK şam istifadə olunur.
+ */
+function findRuleEntryMarket(dayRows,n){
+  const target=$('time'+n).value, mode=$('entryMode').value;
+  for(let i=0; i<dayRows.length; i++){
+    const r = dayRows[i];
+    const h = hm(r.d);
+    if(mode==='exact'){
+      if(h===target) return {row:r,price:r.o};
+    } else if(h>=target){
+      return {row:r,price:r.o};
+    }
+  }
+  return null;
+}
+function findRuleEntry(dayRows,n,frame){
+  const type=$('entryType'+n).value;
+  if(type==='time') return findRuleEntryMarket(dayRows,n);
+
+  const pointMode=$('entryPointMode'+n).value;
+  if(isStopOrderMode(pointMode)) return findRuleEntryStop(dayRows,n,frame);
+
+  const level=resolveEntryLevel(n,frame);
+  const reqBelow = $('reqCloseBelowMin'+n) ?$('reqCloseBelowMin'+n).checked : false;
+  const reqAbove = $('reqCloseAboveMax'+n) ?$('reqCloseAboveMax'+n).checked : false;
+  // Ən azı neçə pips (aşağı/yuxarı) bağlanmalıdır (0 = məsafənin əhəmiyyəti yoxdur, əvvəlki davranış).
+  const belowPips = (reqBelow && $('reqCloseBelowPips'+n)) ? (+$('reqCloseBelowPips'+n).value||0) : 0;
+  const abovePips = (reqAbove && $('reqCloseAbovePips'+n)) ? (+$('reqCloseAbovePips'+n).value||0) : 0;
+
+  let closeSatisfiedIdx = -1;
+
+  if(reqBelow || reqAbove){
+    // Təsdiq şamı yalnız çərçivə tam bitəndən sonrakı şamlar arasında axtarılır
+    // (çərçivədən əvvəlki və çərçivənin öz şamları nəzərə alınmır).
+    const fStartM = minutes($('frameStart').value || '02:00');
+    const fEndM = minutes($('frameEnd').value || '03:59');
+    for(let i=0; i<dayRows.length; i++){
+      const r = dayRows[i];
+      const rm = bakuMinutes(r);
+      if(rm <= fEndM || (fStartM > fEndM && rm >= fStartM)) continue;
+      if((reqBelow && r.c < frame.low - belowPips*frame.pip) || (reqAbove && r.c > frame.high + abovePips*frame.pip)){
+        closeSatisfiedIdx = i;
+        break;
+      }
+    }
+    if(closeSatisfiedIdx === -1) return null;
+  }
+
+  const startIdx = closeSatisfiedIdx >= 0 ? closeSatisfiedIdx + 1 : 0;
+
+  const a=minutes($('intervalStart'+n).value),b=minutes($('intervalEnd'+n).value),lo=Math.min(a,b),hi=Math.max(a,b);
+
+  for(let i=startIdx; i<dayRows.length; i++){
+    const r = dayRows[i];
+    const m = bakuMinutes(r);
+
+    if(m < lo) continue;
+    if(m > hi) break;
+
+    if(r.l<=level && r.h>=level){
+      return {row:r,price:level};
+    }
+  }
+
+  return null;
+}
+
+/*
+ * STOP ORDERLƏR (Buy Stop Limit / Sell Stop Limit):
+ * Əvvəlcə Stop Price (Tətik qiyməti) toxunmalıdır (trigger). Tətik şamı BAĞLANDIQDAN SONRA,
+ * yəni yalnız NÖVBƏTİ şamlardan başlayaraq Limit Price (bu proqramda "Səviyyə" adlanan,
+ * resolveEntryLevel ilə hesablanan səviyyə) axtarılır; Limit toxunduqda mövqe həmin qiymətdən açılır.
+ * (Tətik və Limit eyni şamda sayılmır — şam daxilində hansının əvvəl olduğu bəlli deyil.)
+ * Digər giriş rejimlərinin (frameLevel/frameOffset) məntiqinə toxunulmayıb.
+ */
+/*
+ * MT5 məhdudiyyəti: Buy Stop Limit əmrində Stop Price mütləq Limit Price-dan
+ * YUXARI olmalıdır (qiymət yuxarı qalxıb tətiklənir, sonra aşağı — limitə — geri çəkilir).
+ * Sell Stop Limit əmrində isə əksinə, Stop Price Limit Price-dan AŞAĞI olmalıdır.
+ * Bu şərt pozulubsa, broker əmri qəbul etməz — biz də həmin günü/rejimi trade saymırıq.
+ */
+function stopLimitConstraintOk(pointMode,stopPrice,limitPrice){
+  if(pointMode==='buyStopLimit') return stopPrice>limitPrice;
+  if(pointMode==='sellStopLimit') return stopPrice<limitPrice;
+  return true;
+}
+
+/*
+ * MT5 MƏHDUDİYYƏTİNİN GİRİŞ SƏVİYYƏSİNDƏ TƏTBİQİ
+ *
+ * Stop Price və Limit Price çərçivənin Min/Maks səviyyəsindən ± pips kimi təyin olunur.
+ * Bu səbəbdən onların nisbəti üç haldan birindədir:
+ *   'ok'      — bütün günlər üçün qayda ödənir;
+ *   'invalid' — heç bir gündə ödənə bilməz (qəti səhv) → dəyişiklik qəbul edilmir, Run bloklanır;
+ *   'depends' — həmin günün çərçivə aralığından (Range) asılıdır (Min ilə Maks qarışıq seçilib);
+ *               bu halda əvvəlki kimi hər gün ayrıca yoxlanılır (findRuleEntryStop) və
+ *               qaydaya uyğun gəlməyən günlərdə əmr rədd olunur.
+ * Hesablama resolveEntryLevel/resolveStopPrice ilə eyni düsturlarla aparılır (işarəli offset).
+ */
+function stopLimitRuleText(pointMode){
+  return pointMode==='buyStopLimit'
+    ? 'Buy Stop Limit-də Stop Price Limit Price-dan YUXARI olmalıdır (Stop > Limit)'
+    : 'Sell Stop Limit-də Stop Price Limit Price-dan AŞAĞI olmalıdır (Stop < Limit)';
+}
+function stopLimitStaticStatus(n){
+  // Müəyyən vaxt (entryType='time') rejimində Giriş nöqtəsi paneli istifadə olunmur —
+  // entryPointMode-un (hətta əvvəldən Stop Limit seçilmiş olsa belə) heç bir təsiri yoxdur.
+  if($('entryType'+n) && $('entryType'+n).value==='time') return {status:'na'};
+  const pm=$('entryPointMode'+n)?$('entryPointMode'+n).value:'';
+  if(!isStopOrderMode(pm)) return {status:'na'};
+  const stopMode=$('entryStopPriceMode'+n)?$('entryStopPriceMode'+n).value:'frameLevel';
+  let sLevel,sOff;
+  if(stopMode==='frameLevel'){
+    sLevel=$('entryStopLevel'+n).value; sOff=0;
+  } else {
+    sLevel=$('entryStopOffsetLevel'+n).value;
+    const sp=+$('entryStopOffsetPips'+n).value;
+    sOff=$('entryStopOffsetDir'+n).value==='above'?sp:-sp;
+  }
+  const lLevel=$('entryOffsetLevel'+n).value;
+  const lp=+$('entryOffsetPips'+n).value;
+  const lOff=$('entryOffsetDir'+n).value==='above'?lp:-lp;
+  if(!Number.isFinite(sOff)||!Number.isFinite(lOff)) return {status:'unknown'};
+  const EPS=1e-9;
+  const d=sOff-lOff;                                   // Stop - Limit (pips), çərçivə fərqi istisna
+  const sMax=sLevel==='max', lMax=lLevel==='max';
+  const c=(sMax===lMax)?0:(sMax?1:-1);                 // Stop-Limit = c*Range + d
+  let status;
+  if(pm==='buyStopLimit'){                             // lazımdır: c*Range + d > 0
+    if(c===0) status=d>EPS?'ok':'invalid';
+    else if(c===1) status=d>EPS?'ok':'depends';
+    else status=d>EPS?'depends':'invalid';
+  } else {                                             // sellStopLimit: c*Range + d < 0
+    if(c===0) status=d<-EPS?'ok':'invalid';
+    else if(c===1) status=d<-EPS?'depends':'invalid';
+    else status=d<-EPS?'ok':'depends';
+  }
+  return {status,d,c,pm};
+}
+function stopGuardIds(n){
+  // Stop Price rejimi seçicisi (Min/Maks ↔ ± pips) daxil deyil: bu, sahələrin dəyər dəyişikliyi deyil,
+  // hesablama forması dəyişikliyidir; onun nəticəsi canlı yoxlama və Run bloku ilə idarə olunur.
+  return ['entryStopLevel','entryStopOffsetLevel','entryStopOffsetDir','entryStopOffsetPips',
+          'entryOffsetLevel','entryOffsetDir','entryOffsetPips'].map(x=>x+n);
+}
+function syncStopGuardPrev(n){
+  stopGuardIds(n).forEach(id=>{const el=$(id); if(el) el.dataset.prevValue=el.value;});
+}
+/*
+ * Stop/Limit sahələrindən biri dəyişdirilib və nəticədə MT5 qaydası qəti pozulursa,
+ * dəyişiklik qəbul edilmir (əvvəlki dəyər bərpa olunur). Rejim əvvəldən pozulmuş
+ * vəziyyətdədirsə (məs. rejim dəyişdirildikdən sonra), düzəliş prosesinə mane olmamaq üçün
+ * aralıq addımlar qəbul edilir, lakin Run yenə də bloklu qalır.
+ */
+function guardStopLimitChange(n,el){
+  if(!isStopOrderMode($('entryPointMode'+n).value)){el.dataset.prevValue=el.value;return;}
+  const prev=el.dataset.prevValue, cur=el.value;
+  if(prev!==undefined && prev!==cur && stopLimitStaticStatus(n).status==='invalid'){
+    el.value=prev;
+    if(stopLimitStaticStatus(n).status!=='invalid'){
+      updateStopLimitCheck(n);
+      alert(`Qayda ${n} — MT5 məhdudiyyəti:\n${stopLimitRuleText($('entryPointMode'+n).value)}.\n\nBu dəyişiklik qəbul olunmadı, əvvəlki dəyər bərpa edildi.`);
+      return;
+    }
+    el.value=cur;
+  }
+  el.dataset.prevValue=el.value;
+  updateStopLimitCheck(n);
+}
+
+/*
+ * TƏTİK İSTİQAMƏTİ (MT5 məntiqi):
+ *   Buy Stop Limit  — Stop Price bazar qiymətindən YUXARIDA yerləşir və qiymət YUXARI qalxıb ona çatanda tətiklənir.
+ *   Sell Stop Limit — Stop Price bazar qiymətindən AŞAĞIDA yerləşir və qiymət AŞAĞI düşüb ona çatanda tətiklənir.
+ * Şama qədərki qiymət (əvvəlki şamın close-u; gündə ilk şamdırsa həmin şamın open-i) Stop Price-ın "düzgün"
+ * tərəfində olmalıdır. Qiymət artıq Stop Price-ı keçibsə (məs. təsdiq şamı Stop-dan kənarda bağlanıbsa),
+ * geri çəkilişdə səviyyəyə toxunmaq tətik SAYILMIR — belə əmr MT5-də qəbul olunmazdı. Tətik yalnız qiymət
+ * səviyyənin düzgün tərəfinə qayıdıb yenidən ona düzgün istiqamətdən çatanda baş verir.
+ * Şam əvvəlki close-dan gap ilə Stop Price-ı keçibsə də (düzgün istiqamətdə), tətik sayılır.
+ */
+function stopTriggered(pointMode,prevClose,r,stopPrice){
+  if(pointMode==='buyStopLimit') return prevClose<stopPrice && r.h>=stopPrice;
+  return prevClose>stopPrice && r.l<=stopPrice;   // sellStopLimit
+}
+
+function findRuleEntryStop(dayRows,n,frame){
+  const pointMode=$('entryPointMode'+n).value;
+  const type=$('entryType'+n).value;
+  const stopPrice=resolveStopPrice(n,frame);
+  const limitPrice=resolveEntryLevel(n,frame);
+  if(!stopLimitConstraintOk(pointMode,stopPrice,limitPrice)) return null;
+  const reqBelow = $('reqCloseBelowMin'+n) ?$('reqCloseBelowMin'+n).checked : false;
+  const reqAbove = $('reqCloseAboveMax'+n) ?$('reqCloseAboveMax'+n).checked : false;
+  // Ən azı neçə pips (aşağı/yuxarı) bağlanmalıdır (0 = məsafənin əhəmiyyəti yoxdur, əvvəlki davranış).
+  const belowPips = (reqBelow && $('reqCloseBelowPips'+n)) ? (+$('reqCloseBelowPips'+n).value||0) : 0;
+  const abovePips = (reqAbove && $('reqCloseAbovePips'+n)) ? (+$('reqCloseAbovePips'+n).value||0) : 0;
+
+  let closeSatisfiedIdx = -1;
+
+  if(reqBelow || reqAbove){
+    const fStartM = minutes($('frameStart').value || '02:00');
+    const fEndM = minutes($('frameEnd').value || '03:59');
+    for(let i=0; i<dayRows.length; i++){
+      const r = dayRows[i];
+      const rm = bakuMinutes(r);
+      if(rm <= fEndM || (fStartM > fEndM && rm >= fStartM)) continue;
+      if((reqBelow && r.c < frame.low - belowPips*frame.pip) || (reqAbove && r.c > frame.high + abovePips*frame.pip)){
+        closeSatisfiedIdx = i;
+        break;
+      }
+    }
+    if(closeSatisfiedIdx === -1) return null;
+  }
+
+  const startIdx = closeSatisfiedIdx >= 0 ? closeSatisfiedIdx + 1 : 0;
+
+  if(type==='time'){
+    const target=$('time'+n).value, mode=$('entryMode').value;
+    let triggered=false;
+
+    for(let i=startIdx; i<dayRows.length; i++){
+      const r = dayRows[i];
+      const h = hm(r.d);
+
+      if(!triggered){
+        // Tətik axtarışı: yalnız seçilmiş vaxta uyğun şamlarda. Stop Price toxunulan şamda Limit Price
+        // yoxlanılmır — Limit yalnız həmin şam BAĞLANDIQDAN SONRAKI şamlardan axtarılır.
+        if(mode==='exact' ? h===target : h>=target){
+          if(stopTriggered(pointMode, i>0?dayRows[i-1].c:r.o, r, stopPrice)) triggered=true;
+          else if(mode==='exact') return null;
+        }
+        continue;
+      }
+      // Tətik artıq əvvəlki şamda baş verib: Limit Price axtarışı (sonrakı şamlarda)
+      if(r.l<=limitPrice && r.h>=limitPrice) return {row:r,price:limitPrice};
+    }
+    return null;
+  }
+
+  const a=minutes($('intervalStart'+n).value),b=minutes($('intervalEnd'+n).value),lo=Math.min(a,b),hi=Math.max(a,b);
+  let triggered=false;
+
+  for(let i=startIdx; i<dayRows.length; i++){
+    const r = dayRows[i];
+    const m = bakuMinutes(r);
+
+    if(m < lo) continue;
+    if(m > hi) break;
+
+    if(!triggered){
+      // Stop Price toxunulan şamda Limit Price yoxlanılmır (eyni şamda tətik + limit sayılmır);
+      // Limit yalnız tətik şamı bağlandıqdan sonrakı şamlardan axtarılır.
+      if(stopTriggered(pointMode, i>0?dayRows[i-1].c:r.o, r, stopPrice)) triggered=true;
+      continue;
+    }
+    if(r.l<=limitPrice && r.h>=limitPrice) return {row:r,price:limitPrice};
+  }
+
+  return null;
+}
+
+function simulateTrade(entryInfo,n,to,side,frame,lot,contract,comm,slip,amb){
+  lastTradeUnresolved=false;
+  const entryRow=entryInfo.row;
+  const entry=entryInfo.price + (side==='buy'?slip:-slip);
+  
+  // SL Hesablanması (Standartlaşdırıldı)
+  const slSpec=resolveDistance(entryRow,n,'sl',side,frame);
+  let slP;
+  if (slSpec.invalid) { lastTradeUnresolved=false; return null; }
+  if (slSpec.absolute !== undefined) {
+    slP = slSpec.absolute;
+  } else {
+    slP = side==='buy' ? entry - slSpec.priceDistance : entry + slSpec.priceDistance;
+  }
+
+  // TP Hesablanması
+  const tpMode=$('tpMode'+n).value;
+  const tpSpec=tpMode==='time'?null:resolveDistance(entryRow,n,'tp',side,frame);
+  let tpP = null;
+  if (tpSpec) {
+    if (tpSpec.invalid) { lastTradeUnresolved=false; return null; }
+    if (tpSpec.absolute !== undefined) {
+      tpP = tpSpec.absolute;
+    } else {
+      tpP = side==='buy' ? entry + tpSpec.priceDistance : entry - tpSpec.priceDistance;
+    }
+  }
+
+  // MT5 QAYDASI: BUY üçün SL mütləq girişdən AŞAĞI, TP mütləq girişdən YUXARI olmalıdır.
+  // SELL üçün əksinə: SL girişdən YUXARI, TP girişdən AŞAĞI olmalıdır. MT5 broker bunun
+  // əksini (məs. buy üçün SL-i girişdən yuxarıda) əmr kimi qəbul etmir — ona görə burada
+  // da belə bir konfiqurasiya (Səviyyə/Offset/Əvvəlki gün seçimlərinin hansı kombinasiyası
+  // ilə alınmasından asılı olmayaraq, gündən-günə çərçivə dəyişdiyi üçün bu bəzi günlər
+  // düzgün, bəzi günlər səhv ola bilər) həmin gün üçün etibarsız sayılır və trade sayılmır —
+  // əvvəllər bu yoxlama olmadığından SL/TP tərəfi səhv olduqda nəticə (SL/TP/PnL) mənasız
+  // çıxırdı (məs. "SL" kimi qeyd olunan trade müsbət PnL göstərirdi).
+  const slSideOk = side==='buy' ? slP<entry : slP>entry;
+  if(!slSideOk){ lastTradeUnresolved=false; return null; }
+  if(tpP!==null){
+    const tpSideOk = side==='buy' ? tpP>entry : tpP<entry;
+    if(!tpSideOk){ lastTradeUnresolved=false; return null; }
+  }
+
+  const tpTime=tpMode==='time'?minutes($('tpTime'+n).value):null;
+  let exit=null,result='OPEN',j=rows.indexOf(entryRow)+1;
+
+  // Giriş şamında SL yoxlaması: giriş nöqtəsinə çatdıqdan sonra qiymət SL tərəfinə keçibsə SL həmin şamda vurulur.
+  // Şamın açılışı girişdən SL-in əks tərəfindədirsə (qiymət SL tərəfinə doğru hərəkətlə girişə çatıb), SL-ə toxunuş
+  // girişdən sonra qəti baş verib. Əks halda sıra bilinmir və "Ambiguous candle" seçiminə görə həll olunur.
+  {
+    const hitSLe=side==='buy'?entryRow.l<=slP:entryRow.h>=slP;
+    if(hitSLe){
+      const slAfterFill=side==='buy'?entryRow.o>=entryInfo.price:entryRow.o<=entryInfo.price;
+      if(slAfterFill||amb==='sl'){result='SL';exit=slP;j=j-1}
+      else if(amb==='skip')return null;
+    }
+  }
+
+  for(;exit===null&&j<rows.length;j++){
+    const x=rows[j];if(x.d>to)break;
+    if(tpMode==='time'&&bakuMinutes(x.d)>=tpTime){result='TIME';exit=rows[j-1].c;break}
+    const hitSL=side==='buy'?x.l<=slP:x.h>=slP;
+    const hitTP=tpMode==='time'?false:(side==='buy'?x.h>=tpP:x.l<=tpP);
+    if(hitSL&&hitTP){if(amb==='skip')break;result=amb==='sl'?'SL':'TP';exit=amb==='sl'?slP:tpP;break}
+    if(hitSL){result='SL';exit=slP;break}
+    if(hitTP){result='TP';exit=tpP;break}
+  }
+  if(exit===null){
+    // "to" tarixinədək / data sonunadək bağlanmayıb (ambiguous=skip səbəbindən atılan trade deyil) — mövqe açıq qalır
+    lastTradeUnresolved=(j>=rows.length||rows[j].d>to);
+    return null;
+  }
+  // P&L = pips * pip dəyəri (bazis lotda 1 pip = $1, lota mütənasib).
+  // Contract input-u digər parametrlərlə birlikdə saxlanılır, P&L-ə vurulmur.
+  const priceDistance = side==='buy' ? (exit-entry) : (entry-exit);
+  const pnl = pipsToUsd(priceToPips(priceDistance)) - comm;
+  return {date:dateKey(entryRow.d),entry,exit,side,result,pnl,entryTime:entryRow.d,exitTime:rows[j].d,rule:n,pips:priceToPips(priceDistance)};
+}
+
+async function run(){
+  // MT5 qaydası qəti pozulmuş aktiv Stop Limit qaydası varsa, səhv hesabatın qarşısını almaq üçün
+  // hesablama başladılmır.
+  const badStopRules=[1,2,3,4].filter(n=>$('active'+n).checked && stopLimitStaticStatus(n).status==='invalid');
+  if(badStopRules.length){
+    alert('MT5 məhdudiyyəti pozulub — hesablama aparılmadı.\n\n'
+      +badStopRules.map(n=>`Qayda ${n}: ${stopLimitRuleText($('entryPointMode'+n).value)}`).join('\n')
+      +'\n\nStop Price / Limit Price dəyərlərini düzəldib yenidən cəhd edin.');
+    return;
+  }
+  if(!rows.length){
+    const f=$('file').files &&$('file').files[0];
+    if(f){
+      try{await loadCsvFile(f)}catch(err){alert('CSV faylı oxunmadı: '+err.message);return}
+    } else {
+      alert('Əvvəlcə CSV faylı seçin.');return
+    }
+  }
+  const lot=+$('lot').value,contract=+$('contract').value,comm=+$('commission').value,slip=+$('slippage').value,amb=$('ambiguous').value;
+  
+  const configs=[];
+  [1, 2, 3, 4].forEach(n => {
+    if ($('active' + n).checked) {
+      const pointMode=$('entryPointMode'+n).value;
+      const isTimeEntry=$('entryType'+n).value==='time';
+      // Stop order (Buy/Sell Stop Limit) seçilibsə, əməliyyatın istiqaməti bu tipdən gəlir;
+      // digər rejimlərdə (frameLevel/frameOffset) İstiqamət seçimindən götürülür (dəyişməz).
+      // Müəyyən vaxt (bazar qiyməti) rejimində Giriş nöqtəsi paneli — deməli entryPointMode də —
+      // istifadə olunmur, İstiqamət həmişə İstiqamət seçimindən götürülür.
+      const side = isTimeEntry ? $('side' + n).value : (pointMode==='buyStopLimit' ? 'buy' : pointMode==='sellStopLimit' ? 'sell' : $('side' + n).value);
+      configs.push({ n, side });
+    }
+  });
+
+  if (configs.length === 0) {
+    alert('Hesablama aparmaq üçün ən azı bir qaydanı aktiv edin.');
+    return;
+  }
+
+  if(lot<=0||contract<=0||getPipSize()<=0){alert('Pip ölçüsü, Lot və Contract size müsbət olmalıdır.');return}
+  // Tarix input-ları da eyni "Bakı divar saatı = UTC sahələri" bazasında yaradılır.
+  // new Date('YYYY-MM-DDT00:00:00') brauzerin lokal timezone-undan asılı olurdu
+  // və CSV timestamp-ləri ilə sərhədlərdə əlavə sürüşmə yaradırdı.
+  const from=$('from').value?parseBakuDateBoundary($('from').value,false):rows[0].d;
+  const to=$('to').value?parseBakuDateBoundary($('to').value,true):rows.at(-1).d;
+  const respectOpen=!!($('respectOpen')&&$('respectOpen').checked);
+  skippedActive=respectOpen;skippedTrades=[];
+  const days=new Set(selectedDays());results=[];skippedBusy=0;const byDate=new Map();
+  // Aylar (əlavə, könüllü filtr): "months" seçimi boşdursa (heç bir ay seçilməyibsə),
+  // bu filtr heç bir təsir göstərmir və mövcud gün/tarix davranışı tam olaraq əvvəlki kimi qalır.
+  const months=new Set(selectedMonths());
+  // Hər qayda üçün son trade-in bağlanma vəziyyəti: qayda üzrə əvvəlki mövqe hələ açıqdırsa yeni siqnal keçilir.
+  const busy={};
+  for(const r of rows){if(r.d<from||r.d>to)continue;const day=bakuDay(r);if(!days.has(day))continue;if(months.size&&!months.has(r.d.getUTCMonth()+1))continue;const ds=dateKey(r.d);if(!byDate.has(ds))byDate.set(ds,[]);byDate.get(ds).push(r)}
+  for(const [ds,dayRows] of byDate){
+    const frame=frameForDay(dayRows);
+    if(!frame) continue;
+    const candidates=[];
+    for(const cfg of configs){const entryInfo=findRuleEntry(dayRows,cfg.n,frame);if(entryInfo)candidates.push({cfg,entryInfo})}
+    candidates.sort((a,b)=>a.entryInfo.row.d-b.entryInfo.row.d);
+    for(const {cfg,entryInfo} of candidates){
+      const b=busy[cfg.n];
+      if(respectOpen && b){
+        // Əvvəlki mövqe bağlanmayıbsa və ya bağlanma vaxtından əvvəl (SL/TP üçün: eyni şamda da) giriş olarsa — keç.
+        const et=entryInfo.row.d.getTime();
+        if(b.open || et<b.exit || (et===b.exit && b.result!=='TIME')){
+          skippedBusy++;
+          // Nəzərə alınmayan əməliyyatın məlumatı (yalnız göstərmək üçün hesablanır; statistikaya və busy-yə təsir etmir)
+          const sk=simulateTrade(entryInfo,cfg.n,to,cfg.side,frame,lot,contract,comm,slip,amb);
+          skippedTrades.push({
+            date:dateKey(entryInfo.row.d),rule:cfg.n,side:cfg.side,
+            entry:sk?sk.entry:entryInfo.price+(cfg.side==='buy'?slip:-slip),
+            exit:sk?sk.exit:null,
+            result:sk?sk.result:(lastTradeUnresolved?'OPEN':'SKIP'),
+            pnl:sk?sk.pnl:null,
+            entryTime:entryInfo.row.d,exitTime:sk?sk.exitTime:null,
+            blockEntry:b.entryTime,blockExit:b.open?null:b.exitTime
+          });
+          continue;
+        }
+      }
+      const trade=simulateTrade(entryInfo,cfg.n,to,cfg.side,frame,lot,contract,comm,slip,amb);
+      if(trade){results.push(trade);busy[cfg.n]={open:false,exit:trade.exitTime.getTime(),result:trade.result,entryTime:trade.entryTime,exitTime:trade.exitTime}}
+      else if(lastTradeUnresolved){busy[cfg.n]={open:true,entryTime:entryInfo.row.d}}
+    }
+  }
+  results.sort((a,b)=>a.entryTime-b.entryTime);skippedTrades.sort((a,b)=>a.entryTime-b.entryTime);render();renderSkipped();
+}
+
+/* Equity curve panelində "Nəzərə alınmayan əməliyyatlar" bölməsi (yalnız "Açıq mövqelər nəzərə alınsın" aktiv olduqda) */
+function renderSkipped(){
+  const box=$('skippedBox');
+  if(!box) return;
+  box.style.display=skippedActive?'block':'none';
+  if(!skippedActive) return;
+  $('skippedCount').textContent=skippedTrades.length;
+  const known=skippedTrades.filter(x=>x.pnl!==null);
+  const sum=known.reduce((a,x)=>a+x.pnl,0);
+  $('skippedNote').textContent=skippedTrades.length
+    ? `Açıq mövqe olduğu üçün hesabata daxil edilməyən ${skippedTrades.length} əməliyyat (məlumat məqsədilə hesablanıb, statistikaya və equity curve-ə təsir etmir). Nəzəri P&L cəmi: ${money(sum)}.`
+    : 'Nəzərə alınmayan əməliyyat yoxdur.';
+  const tb=$('skippedTrades').querySelector('tbody');tb.innerHTML='';
+  for(const r of skippedTrades){
+    const tr=document.createElement('tr');
+    const cls=r.pnl===null?'':(r.pnl>=0?'good':'bad');
+    const blk=`${fmt(r.blockEntry)} → ${r.blockExit?fmt(r.blockExit):'açıq'}`;
+    tr.innerHTML=`<td>${r.date}</td><td>Qayda ${r.rule}</td><td>${r.entry.toFixed(5)}</td><td>${r.exit===null?'—':r.exit.toFixed(5)}</td><td>${r.side.toUpperCase()}</td><td class="${cls}">${r.result}</td><td class="${cls}">${r.pnl===null?'—':money(r.pnl)}</td><td>${fmt(r.entryTime)}</td><td>${r.exitTime?fmt(r.exitTime):'—'}</td><td>${blk}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+function render(){
+ const n=results.length,w=results.filter(x=>x.pnl>0).length,l=results.filter(x=>x.pnl<0).length,t=results.filter(x=>x.result==='TIME').length;
+ const grossP=results.filter(x=>x.pnl>0).reduce((a,x)=>a+x.pnl,0),grossL=-results.filter(x=>x.pnl<0).reduce((a,x)=>a+x.pnl,0),net=grossP-grossL;
+ let eq=0,peak=0,maxdd=0;const curve=[0];for(const r of results){eq+=r.pnl;curve.push(eq);peak=Math.max(peak,eq);maxdd=Math.max(maxdd,peak-eq)}
+ $('n').textContent=n;$('wr').textContent=n?(w/n*100).toFixed(1)+'\%':'—';$('gp').textContent=money(grossP);
+ $('gl').textContent='-'+grossL.toFixed(2)+'$';
+ $('pnl').textContent=money(net);$('pnl').className='v '+(net>=0?'good':'bad');
+ $('pf').textContent=grossL? (grossP/grossL).toFixed(2):grossP?'∞':'—';$('dd').textContent=money(-maxdd);$('dd').className='v '+(maxdd?'bad':'');$('eq').textContent=money(eq);$('eq').className='v '+(eq>=0?'good':'bad');$('summary').textContent=`${n} trade • ${results.filter(x=>x.result==='TP').length} TP / ${results.filter(x=>x.result==='SL').length} SL / ${t} TIME • Gross profit ${money(grossP)} • Gross loss -${grossL.toFixed(2)} $${skippedBusy?` • ${skippedBusy} siqnal açıq mövqe səbəbindən keçildi`:''}`;
+ const tb=$('trades').querySelector('tbody');tb.innerHTML='';
+ for(const r of results){const tr=document.createElement('tr');tr.innerHTML=`<td>${r.date}</td><td>Qayda ${r.rule}</td><td>${r.entry.toFixed(5)}</td><td>${r.exit.toFixed(5)}</td><td>${r.side.toUpperCase()}</td><td class="${r.pnl>=0?'good':'bad'}">${r.result}</td><td class="${r.pnl>=0?'good':'bad'}">${money(r.pnl)}</td><td>${fmt(r.entryTime)}</td><td>${fmt(r.exitTime)}</td>`;tb.appendChild(tr)}
+ draw(curve);$('download').disabled=!n;
+}
+
+function draw(data){
+ const c=$('chart'),dpr=devicePixelRatio||1,rect=c.getBoundingClientRect();c.width=rect.width*dpr;c.height=rect.height*dpr;
+ const ctx=c.getContext('2d');ctx.scale(dpr,dpr);const w=rect.width,h=rect.height,p=28;
+ ctx.clearRect(0,0,w,h);ctx.strokeStyle='#283653';ctx.lineWidth=1;
+ for(let k=0;k<5;k++){let y=p+k*(h-2*p)/4;ctx.beginPath();ctx.moveTo(p,y);ctx.lineTo(w-p,y);ctx.stroke()}
+ if(data.length<2)return;
+ const min=Math.min(...data),max=Math.max(...data),range=max-min||1;
+ ctx.beginPath();data.forEach((v,i)=>{const x=p+i*(w-2*p)/(data.length-1),y=h-p-(v-min)*(h-2*p)/range;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle='#5aa9ff';ctx.lineWidth=2;ctx.stroke();
+ ctx.fillStyle='#9eabc2';ctx.font='11px system-ui';ctx.fillText(max.toFixed(2)+' $',p+5,p+12);ctx.fillText(min.toFixed(2)+'$',p+5,h-p-3);
+}
+
+/* PROFIL İDARƏETMƏSİ */
+function getProfileData() {
+  const data = {};
+  const inputIds = [
+    'frameStart', 'frameEnd', 'pipSize', 'pipMode',
+    'entryMode', 'lot', 'contract', 'commission', 'slippage', 'ambiguous', 'from', 'to',
+    'manualTzMode'
+  ];
+  inputIds.forEach(id => {
+    if ($(id)) data[id] =$(id).value;
+  });
+  
+  if ($('days')) {
+    data['days'] = [...$('days').selectedOptions].map(x => x.value);
+  }
+  if ($('months')) {
+    data['months'] = [...$('months').selectedOptions].map(x => x.value);
+  }
+  if ($('respectOpen')) data['respectOpenPositions'] = $('respectOpen').checked;
+  if ($('autoTz')) data['autoTz'] = $('autoTz').checked;
+
+  data.rules = {};
+  [1, 2, 3, 4].forEach(n => {
+    data.rules[n] = {
+      active: $('active' + n).checked,
+      side: $('side' + n).value,
+      entryType: $('entryType' + n).value,
+      time: $('time' + n).value,
+      intervalStart: $('intervalStart' + n).value,
+      intervalEnd: $('intervalEnd' + n).value,
+      entryPointMode: $('entryPointMode' + n).value,
+      entryLevel: $('entryLevel' + n).value,
+      entryLevelPips: $('entryLevelPips' + n) ?$('entryLevelPips' + n).value : undefined,
+      entryOffsetLevel: $('entryOffsetLevel' + n).value,
+      entryOffsetDir: $('entryOffsetDir' + n).value,
+      entryOffsetPips: $('entryOffsetPips' + n).value,
+      entryStopPriceMode: $('entryStopPriceMode' + n) ?$('entryStopPriceMode' + n).value : undefined,
+      entryStopLevel: $('entryStopLevel' + n) ?$('entryStopLevel' + n).value : undefined,
+      entryStopOffsetLevel: $('entryStopOffsetLevel' + n) ?$('entryStopOffsetLevel' + n).value : undefined,
+      entryStopOffsetDir: $('entryStopOffsetDir' + n) ?$('entryStopOffsetDir' + n).value : undefined,
+      entryStopOffsetPips: $('entryStopOffsetPips' + n) ?$('entryStopOffsetPips' + n).value : undefined,
+      reqCloseBelowMin: $('reqCloseBelowMin' + n).checked,
+      reqCloseAboveMax: $('reqCloseAboveMax' + n).checked,
+      reqCloseBelowPips: $('reqCloseBelowPips' + n) ?$('reqCloseBelowPips' + n).value : undefined,
+      reqCloseAbovePips: $('reqCloseAbovePips' + n) ?$('reqCloseAbovePips' + n).value : undefined,
+      slMode: $('slMode' + n).value,
+      slFixed: $('slFixed' + n).value,
+      slLevel: $('slLevel' + n).value,
+      slOffsetLevel: $('slOffsetLevel' + n).value,
+      slOffsetDir: $('slOffsetDir' + n).value,
+      slOffsetPips: $('slOffsetPips' + n).value,
+      tpMode: $('tpMode' + n).value,
+      tpFixed: $('tpFixed' + n).value,
+      tpTime: $('tpTime' + n).value,
+      tpOffsetLevel: $('tpOffsetLevel' + n).value,
+      tpOffsetDir: $('tpOffsetDir' + n).value,
+      tpOffsetPips: $('tpOffsetPips' + n).value
+    };
+  });
+
+  return data;
+}
+
+function applyProfileData(data) {
+  if (!data) return;
+  const inputIds = [
+    'frameStart', 'frameEnd', 'pipSize', 'pipMode',
+    'entryMode', 'lot', 'contract', 'commission', 'slippage', 'ambiguous', 'from', 'to',
+    'manualTzMode'
+  ];
+  inputIds.forEach(id => {
+    if ($(id) && data[id] !== undefined)$(id).value = data[id];
+  });
+
+  if ($('respectOpen') && data.respectOpenPositions !== undefined) $('respectOpen').checked = !!data.respectOpenPositions;
+  // Köhnə (bu sahə əlavə olunmamışdan əvvəlki) profillərdə "autoTz" yoxdursa,
+  // hazırkı qutunun vəziyyətinə toxunulmur — yalnız profildə açıq şəkildə
+  // saxlanılmış dəyər varsa tətbiq olunur.
+  if ($('autoTz') && data.autoTz !== undefined) $('autoTz').checked = !!data.autoTz;
+
+  if (data.days && $('days')) {
+    Array.from($('days').options).forEach(opt => {
+      opt.selected = data.days.includes(opt.value);
+    });
+  }
+  // Köhnə (bu sahə əlavə olunmamışdan əvvəlki) profillərdə "months" yoxdursa,
+  // hazırkı seçimə toxunulmur — yalnız profildə açıq şəkildə saxlanılmış dəyər varsa tətbiq olunur.
+  if (data.months && $('months')) {
+    Array.from($('months').options).forEach(opt => {
+      opt.selected = data.months.includes(opt.value);
+    });
+  }
+
+  if (data.rules) {
+    [1, 2, 3, 4].forEach(n => {
+      const r = data.rules[n];
+      if (!r) return;
+      if ($('active' + n))$('active' + n).checked = !!r.active;
+      if ($('side' + n))$('side' + n).value = r.side;
+      if ($('entryType' + n))$('entryType' + n).value = r.entryType;
+      if ($('time' + n))$('time' + n).value = r.time;
+      if ($('intervalStart' + n))$('intervalStart' + n).value = r.intervalStart;
+      if ($('intervalEnd' + n))$('intervalEnd' + n).value = r.intervalEnd;
+      if ($('entryPointMode' + n))$('entryPointMode' + n).value = r.entryPointMode;
+      if ($('entryLevel' + n))$('entryLevel' + n).value = r.entryLevel;
+      if ($('entryLevelPips' + n) && r.entryLevelPips !== undefined)$('entryLevelPips' + n).value = r.entryLevelPips;
+      if ($('entryOffsetLevel' + n))$('entryOffsetLevel' + n).value = r.entryOffsetLevel;
+      if ($('entryOffsetDir' + n))$('entryOffsetDir' + n).value = r.entryOffsetDir;
+      if ($('entryOffsetPips' + n))$('entryOffsetPips' + n).value = r.entryOffsetPips;
+      if ($('entryStopPriceMode' + n) && r.entryStopPriceMode !== undefined)$('entryStopPriceMode' + n).value = r.entryStopPriceMode;
+      if ($('entryStopLevel' + n) && r.entryStopLevel !== undefined)$('entryStopLevel' + n).value = r.entryStopLevel;
+      if ($('entryStopOffsetLevel' + n) && r.entryStopOffsetLevel !== undefined)$('entryStopOffsetLevel' + n).value = r.entryStopOffsetLevel;
+      if ($('entryStopOffsetDir' + n) && r.entryStopOffsetDir !== undefined)$('entryStopOffsetDir' + n).value = r.entryStopOffsetDir;
+      if ($('entryStopOffsetPips' + n) && r.entryStopOffsetPips !== undefined)$('entryStopOffsetPips' + n).value = r.entryStopOffsetPips;
+      if ($('reqCloseBelowMin' + n))$('reqCloseBelowMin' + n).checked = !!r.reqCloseBelowMin;
+      if ($('reqCloseAboveMax' + n))$('reqCloseAboveMax' + n).checked = !!r.reqCloseAboveMax;
+      if ($('reqCloseBelowPips' + n) && r.reqCloseBelowPips !== undefined)$('reqCloseBelowPips' + n).value = r.reqCloseBelowPips;
+      if ($('reqCloseAbovePips' + n) && r.reqCloseAbovePips !== undefined)$('reqCloseAbovePips' + n).value = r.reqCloseAbovePips;
+      if ($('slMode' + n))$('slMode' + n).value = r.slMode;
+      if ($('slFixed' + n))$('slFixed' + n).value = r.slFixed;
+      if ($('slLevel' + n))$('slLevel' + n).value = r.slLevel;
+      if ($('slOffsetLevel' + n))$('slOffsetLevel' + n).value = r.slOffsetLevel;
+      if ($('slOffsetDir' + n))$('slOffsetDir' + n).value = r.slOffsetDir;
+      if ($('slOffsetPips' + n))$('slOffsetPips' + n).value = r.slOffsetPips;
+      if ($('tpMode' + n))$('tpMode' + n).value = r.tpMode;
+      if ($('tpFixed' + n))$('tpFixed' + n).value = r.tpFixed;
+      if ($('tpTime' + n))$('tpTime' + n).value = r.tpTime;
+      if ($('tpOffsetLevel' + n))$('tpOffsetLevel' + n).value = r.tpOffsetLevel;
+      if ($('tpOffsetDir' + n))$('tpOffsetDir' + n).value = r.tpOffsetDir;
+      if ($('tpOffsetPips' + n))$('tpOffsetPips' + n).value = r.tpOffsetPips;
+
+      toggleRuleAccordion(n);
+      toggleEntryType(n);
+      toggleRiskMode(n);
+      toggleStopPriceMode(n);
+      syncStopGuardPrev(n);
+    });
+  }
+  // Saat qurşağı tənzimləməsi (autoTz / manualTzMode) profildən yükləndikdən sonra,
+  // artıq CSV yüklənibsə, sətirlərin Bakı vaxtı təyinatı yeni tənzimləməyə uyğun
+  // yenidən hesablanır — əks halda köhnə (yüklənmə anındakı) tənzimləmə ilə hesablanmış
+  // tarixlər qala bilər.
+  toggleManualTzMode();
+  reapplyTimezone();
+  updateFrameStatus();
+  updateDataInfo();
+  updateDaysMonthsWarning();
+}
+
+function saveProfileToStorage() {
+  const data = getProfileData();
+  localStorage.setItem('backtest_profile', JSON.stringify(data));
+  alert('Profil brauzer yaddaşında saxlanıldı!');
+}
+
+function loadProfileFromStorage() {
+  const str = localStorage.getItem('backtest_profile');
+  if (!str) {
+    alert('Yadda saxlanılmış profil tapılmadı.');
+    return;
+  }
+  try {
+    const data = JSON.parse(str);
+    applyProfileData(data);
+    alert('Profil uğurla yükləndi!');
+  } catch (e) {
+    alert('Profil oxunarkən xəta: ' + e.message);
+  }
+}
+
+function exportProfileJSON() {
+  const data = getProfileData();
+  const str = JSON.stringify(data, null, 2);
+  const blob = new Blob([str], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'backtest_profile.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importProfileJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const data = JSON.parse(evt.target.result);
+      applyProfileData(data);
+      alert('Profil JSON faylından yükləndi!');
+    } catch (err) {
+      alert('JSON faylı oxunarkən xəta: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* EVENT LISTENERLER */
+[1, 2, 3, 4].forEach(n=>{
+  $('entryType'+n).addEventListener('change',()=>toggleEntryType(n));$('entryPointMode'+n).addEventListener('change',()=>toggleEntryPoint(n));
+  if($('reqCloseBelowMin'+n))$('reqCloseBelowMin'+n).addEventListener('change',()=>toggleCloseFilterPips(n));
+  if($('reqCloseAboveMax'+n))$('reqCloseAboveMax'+n).addEventListener('change',()=>toggleCloseFilterPips(n));
+  $('entryLevel'+n).addEventListener('change',()=>toggleEntryLevelPips(n));
+  $('slMode'+n).addEventListener('change',()=>toggleRiskMode(n));$('tpMode'+n).addEventListener('change',()=>toggleRiskMode(n));
+  if($('entryStopPriceMode'+n))$('entryStopPriceMode'+n).addEventListener('change',()=>toggleStopPriceMode(n));
+  // Stop Price / Limit Price (Səviyyə) hesablamasına təsir edən sahələr dəyişdikdə
+  // yalnız canlı yoxlama mətnini yeniləyir; heç bir mövcud hesablamaya toxunmur.
+  ['entryLevel'+n,'entryOffsetLevel'+n,'entryOffsetDir'+n,'entryOffsetPips'+n,
+   'entryStopLevel'+n,'entryStopOffsetLevel'+n,'entryStopOffsetDir'+n,'entryStopOffsetPips'+n].forEach(id=>{
+    if($(id)){$(id).addEventListener('change',()=>updateStopLimitCheck(n));$(id).addEventListener('input',()=>updateStopLimitCheck(n));}
+  });
+  toggleEntryType(n); toggleRiskMode(n); toggleStopPriceMode(n);
+  // MT5 məhdudiyyəti: dəyişiklikdən əvvəlki dəyəri yadda saxla, dəyişiklik qəbul edildikdə yoxla.
+  stopGuardIds(n).forEach(id=>{
+    const el=$(id); if(!el) return;
+    // Redaktəyə başlayanda (fokus/toxunuş) əvvəlki qəbul olunmuş dəyər yadda saxlanılır;
+    // artıq redaktə olunan sahəyə təkrar toxunuş bunu üzərinə yazmır.
+    el.addEventListener('focus',()=>{el.dataset.prevValue=el.value;});
+    ['pointerdown','touchstart'].forEach(ev=>el.addEventListener(ev,()=>{if(document.activeElement!==el) el.dataset.prevValue=el.value;},{passive:true}));
+    el.addEventListener('change',()=>guardStopLimitChange(n,el));
+  });
+  syncStopGuardPrev(n);
+});
+['frameStart','frameEnd','pipMode','pipSize','lot','from','to'].forEach(id=>{
+  $(id).addEventListener('change',updateFrameStatus);$(id).addEventListener('input',updateFrameStatus);
+});
+
+/* Aylar seçimi dəyişdikdə: Başlanğıc/Son tarixi avtomatik uyğunlaşdırır və
+ * xəbərdarlıq işarəsini yeniləyir. Günlər seçimi dəyişdikdə: yalnız
+ * xəbərdarlıq işarəsini yeniləyir (mövcud "days" davranışına toxunmur —
+ * gün seçimi əvvəlki kimi yalnız "Backtest-i hesabla" basılanda tətbiq olunur). */
+if($('months')) $('months').addEventListener('change', autoSetDateRangeForMonths);
+if($('days')) $('days').addEventListener('change', updateDaysMonthsWarning);
+updateDaysMonthsWarning();
+
+$('saveProfileBtn').onclick = saveProfileToStorage;
+$('loadProfileBtn').onclick = loadProfileFromStorage;
+$('exportProfileBtn').onclick = exportProfileJSON;
+$('importProfileBtn').onclick = () => $('profileFileInput').click();$('profileFileInput').onchange = importProfileJSON;
+
+$('run').onclick=run;
+$('reset').onclick=()=>location.reload();$('download').onclick=()=>{
+ const head='Date,Rule,Entry,Exit,Side,Result,PnL,EntryTime,ExitTime\n';
+ const body=results.map(r=>[r.date,'Rule '+r.rule,r.entry,r.exit,r.side,r.result,r.pnl,fmt(r.entryTime),fmt(r.exitTime)].join(',')).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([head+body],{type:'text/csv;charset=utf-8'}));a.download='backtest_results.csv';a.click();URL.revokeObjectURL(a.href);
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+  const str = localStorage.getItem('backtest_profile');
+  if (str) {
+    try {
+      applyProfileData(JSON.parse(str));
+    } catch (e) {}
+  }
+});
+
+window.addEventListener('resize',()=>{if(results.length)render()});
+</script>
+
+<script>
+/* ============================================================
+   SUPABASE AUTH
+   Bu hissə yalnız giriş/status yoxlamasını əlavə edir.
+   Mövcud backtest funksiyalarına toxunmur.
+   ============================================================ */
+(() => {
+  const SUPABASE_URL = 'https://krahppgjglncphgimefh.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_rFBhxsA4KfEkz47za5Vsgw_y0Gaf_lb';
+
+  const client = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY,
+    {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    }
+  );
+  window.__forexSupabase = client;
+
+  const gate = document.getElementById('authGate');
+  const emailEl = document.getElementById('authEmail');
+  const passEl = document.getElementById('authPassword');
+  const loginBtn = document.getElementById('loginBtn');
+  const msgEl = document.getElementById('authMsg');
+  const userBar = document.getElementById('authUserBar');
+  const userEmailEl = document.getElementById('authUserEmail');
+  const userRoleEl = document.getElementById('authUserRole');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  function setMessage(message, ok = false) {
+    msgEl.textContent = message || '';
+    msgEl.style.color = ok ? '#86efac' : '#fca5a5';
+  }
+
+  function lockScreen() {
+    document.body.classList.add('auth-locked');
+    gate.style.display = 'flex';
+    userBar.style.display = 'none';
+  }
+
+  function unlockScreen(user, profile) {
+    document.body.classList.remove('auth-locked');
+    gate.style.display = 'none';
+    userBar.style.display = 'flex';
+    userEmailEl.textContent = user.email || profile.email || '';
+    userRoleEl.textContent = profile.role === 'admin' ? '• Admin' : '• User';
+    window.dispatchEvent(new CustomEvent('forex-auth-profile', { detail: { user, profile } }));
+  }
+
+  async function loadProfile(user) {
+    const { data, error } = await client
+      .from('profiles')
+      .select('id,email,full_name,role,status')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Bu istifadəçi üçün profil tapılmadı.');
+    if (data.status !== 'active') throw new Error('Hesab bloklanıb və ya aktiv deyil.');
+    return data;
+  }
+
+  async function finishLogin(session) {
+    if (!session || !session.user) {
+      lockScreen();
+      return;
+    }
+
+    try {
+      const profile = await loadProfile(session.user);
+      unlockScreen(session.user, profile);
+    } catch (error) {
+      await client.auth.signOut();
+      lockScreen();
+      setMessage(error?.message || 'İstifadəçi profili yoxlanarkən xəta baş verdi.');
+    }
+  }
+
+  async function doLogin() {
+    const email = emailEl.value.trim();
+    const password = passEl.value;
+
+    if (!email || !password) {
+      setMessage('E-mail və şifrəni daxil edin.');
+      return;
+    }
+
+    loginBtn.disabled = true;
+    setMessage('Giriş yoxlanılır...', true);
+
+    try {
+      const { data, error } = await client.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+
+      await finishLogin(data.session);
+      if (gate.style.display !== 'none') {
+        setMessage('Giriş mümkün olmadı.');
+      } else {
+        setMessage('');
+      }
+    } catch (error) {
+      setMessage(error?.message || 'E-mail və ya şifrə yanlışdır.');
+    } finally {
+      loginBtn.disabled = false;
+    }
+  }
+
+  loginBtn.addEventListener('click', doLogin);
+
+  [emailEl, passEl].forEach(el => {
+    el.addEventListener('keydown', event => {
+      if (event.key === 'Enter') doLogin();
+    });
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    await client.auth.signOut();
+    location.reload();
+  });
+
+  client.auth.onAuthStateChange((_event, session) => {
+    if (session) {
+      // Auth callback-in içində Supabase çağırışını bloklamamaq üçün ayrıca başladırıq.
+      setTimeout(() => finishLogin(session), 0);
+    } else {
+      lockScreen();
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    lockScreen();
+    const { data } = await client.auth.getSession();
+    await finishLogin(data.session);
+  });
+})();
+</script>
+
+
+<script>
+(() => {
+  let profile = null, user = null;
+  const panel=document.getElementById('adminPanel'), open=document.getElementById('adminOpenBtn');
+  const body=document.getElementById('adminUsersBody'), status=document.getElementById('adminStatus');
+  const total=document.getElementById('adminTotal'), active=document.getElementById('adminActive'), blocked=document.getElementById('adminBlocked');
+  const createModal=document.getElementById('createUserModal');
+  const createBtn=document.getElementById('adminCreateUserBtn');
+  const createCancel=document.getElementById('createUserCancelBtn');
+  const createSubmit=document.getElementById('createUserSubmitBtn');
+  const createMsg=document.getElementById('createUserMsg');
+  const createFullName=document.getElementById('newUserFullName');
+  const createEmail=document.getElementById('newUserEmail');
+  const createPassword=document.getElementById('newUserPassword');
+  const createStatus=document.getElementById('newUserStatus');
+
+  function openCreate(){
+    if(!admin()) return;
+    createModal.style.display='flex';
+    createMsg.textContent='';
+    createFullName.value=''; createEmail.value=''; createPassword.value=''; createStatus.value='active';
+    setTimeout(()=>createFullName.focus(),50);
+  }
+  function closeCreate(){createModal.style.display='none';}
+
+  async function createUser(){
+    if(!admin()) return;
+    const fullName=createFullName.value.trim();
+    const email=createEmail.value.trim();
+    const password=createPassword.value;
+    const statusValue=createStatus.value;
+    if(!email || !email.includes('@')){createMsg.style.color='#fca5a5';createMsg.textContent='Düzgün e-mail daxil edin.';return;}
+    if(password.length<6){createMsg.style.color='#fca5a5';createMsg.textContent='Şifrə ən azı 6 simvol olmalıdır.';return;}
+    createSubmit.disabled=true;
+    createMsg.style.color='#93c5fd'; createMsg.textContent='İstifadəçi yaradılır...';
+    try{
+      const sb=window.__forexSupabase;
+      const {data,error}=await sb.functions.invoke('admin-create-user',{
+        body:{email,password,full_name:fullName,status:statusValue}
+      });
+      if(error) throw new Error(error.message||'Server funksiyası ilə əlaqə alınmadı.');
+      if(data?.error) throw new Error(data.error);
+      createMsg.style.color='#86efac';
+      createMsg.textContent='İstifadəçi uğurla yaradıldı.';
+      await load();
+      setTimeout(closeCreate,700);
+    }catch(error){
+      createMsg.style.color='#fca5a5';
+      createMsg.textContent=error?.message||'İstifadəçi yaradılarkən xəta baş verdi.';
+    }finally{createSubmit.disabled=false;}
+  }
+
+  function admin(){ return profile && profile.role==='admin' && profile.status==='active'; }
+  function date(v){ try{return v?new Date(v).toLocaleString('az-AZ'):'—'}catch(e){return v||'—'} }
+
+  async function load(){
+    if(!admin()) return;
+    status.textContent='Yüklənir...'; body.innerHTML='';
+    const sb=window.__forexSupabase;
+    const {data,error}=await sb.from('profiles').select('id,email,full_name,role,status,created_at').order('created_at',{ascending:false});
+    if(error){status.textContent='Xəta: '+error.message;return;}
+    const rows=data||[];
+    total.textContent=rows.length; active.textContent=rows.filter(x=>x.status==='active').length; blocked.textContent=rows.filter(x=>x.status==='blocked').length;
+    rows.forEach(p=>{
+      const tr=document.createElement('tr');
+      const vals=[p.email||'—',p.full_name||'—',p.role||'user'];
+      vals.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});
+      const ts=document.createElement('td'); const b=document.createElement('span'); b.className='adminBadge '+(p.status==='active'?'adminActive':'adminBlocked'); b.textContent=p.status||'—'; ts.appendChild(b); tr.appendChild(ts);
+      const tc=document.createElement('td');tc.textContent=date(p.created_at);tr.appendChild(tc);
+      const ta=document.createElement('td');
+      if(user && p.id===user.id){ta.textContent='Cari hesab';ta.className='adminSub';}
+      else {const btn=document.createElement('button');btn.className='adminBtn';btn.textContent=p.status==='active'?'Blokla':'Aktivləşdir';btn.onclick=()=>changeStatus(p);ta.appendChild(btn);}
+      tr.appendChild(ta); body.appendChild(tr);
+    });
+    status.textContent=rows.length+' istifadəçi';
+  }
+
+  async function changeStatus(p){
+    if(!admin())return;
+    const next=p.status==='active'?'blocked':'active';
+    if(!confirm((p.email||'İstifadəçini')+' '+(next==='blocked'?'bloklamaq':'aktivləşdirmək')+' istəyirsiniz?'))return;
+    const {error}=await window.__forexSupabase.from('profiles').update({status:next}).eq('id',p.id);
+    if(error){alert('Əməliyyat alınmadı: '+error.message);return;}
+    load();
+  }
+
+  open.onclick=()=>{if(admin()){panel.style.display='block';load();}};
+  document.getElementById('adminBackBtn').onclick=()=>panel.style.display='none';
+  document.getElementById('adminRefreshBtn').onclick=load;
+  createBtn.onclick=openCreate;
+  createCancel.onclick=closeCreate;
+  createSubmit.onclick=createUser;
+  createModal.addEventListener('click',e=>{if(e.target===createModal)closeCreate();});
+  [createFullName,createEmail,createPassword].forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')createUser();}));
+
+  window.addEventListener('forex-auth-profile',e=>{
+    user=e.detail?.user||null; profile=e.detail?.profile||null;
+    open.style.display=admin()?'inline-block':'none';
+    if(!admin())panel.style.display='none';
+  });
+})();
+</script>
+
+</body>
+</html>
