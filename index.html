@@ -178,12 +178,12 @@ table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:6px 8px;b
 #createUserModal .createActions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 #createUserMsg{min-height:18px;margin-top:10px;font-size:12px}
 #adminPanel{display:none;position:fixed;inset:0;z-index:999997;overflow:auto;background:#0b1220;color:#e5e7eb;padding:24px;box-sizing:border-box;font-family:system-ui,sans-serif}
-.adminWrap{max-width:1180px;margin:auto}.adminTop{display:flex;justify-content:space-between;gap:12px;margin-bottom:22px;align-items:flex-start}.adminTop > div:last-child{padding-top:58px}.adminTop h2{margin:0}.adminSub{color:#94a3b8;font-size:13px;margin-top:5px}
+.adminWrap{max-width:1180px;margin:auto}.adminTop{display:flex;justify-content:space-between;gap:12px;margin-bottom:22px}.adminTop h2{margin:0}.adminSub{color:#94a3b8;font-size:13px;margin-top:5px}
 .adminBtn{border:1px solid #334155;border-radius:8px;background:#111827;color:#e5e7eb;padding:9px 12px;cursor:pointer}.adminCards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
 .adminCard,.adminTableBox{background:#111827;border:1px solid #263246;border-radius:12px}.adminCard{padding:17px}.adminLabel{color:#94a3b8;font-size:12px}.adminValue{font-size:25px;font-weight:700;margin-top:7px}
 .adminTableBox{overflow:hidden}.adminTableHead{padding:14px 16px;border-bottom:1px solid #263246;display:flex;justify-content:space-between}.adminTableScroll{overflow:auto}
-#adminUsersTable{width:100%;border-collapse:collapse;min-width:760px}#adminUsersTable th,#adminUsersTable td{padding:11px 12px;border-bottom:1px solid #1e293b;text-align:left;font-size:13px}#adminUsersTable th{color:#94a3b8;background:#0f172a}
-.adminBadge{display:inline-block;padding:3px 7px;border-radius:999px;background:#1e293b;font-size:11px}.adminActive{color:#86efac}.adminBlocked{color:#fca5a5}
+#adminUsersTable{width:100%;border-collapse:collapse;min-width:980px}#adminUsersTable th,#adminUsersTable td{padding:11px 12px;border-bottom:1px solid #1e293b;text-align:left;font-size:13px}#adminUsersTable th{color:#94a3b8;background:#0f172a}
+.adminDelete{border:1px solid #7f1d1d;border-radius:8px;background:#450a0a;color:#fecaca;padding:7px 10px;cursor:pointer}.adminDelete:hover{background:#7f1d1d}.adminBadge{display:inline-block;padding:3px 7px;border-radius:999px;background:#1e293b;font-size:11px}.adminActive{color:#86efac}.adminBlocked{color:#fca5a5}
 .adminEmpty{padding:30px;text-align:center;color:#94a3b8}@media(max-width:720px){#adminPanel{padding:14px}.adminCards{grid-template-columns:1fr}}
 </style>
 
@@ -231,7 +231,7 @@ table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:6px 8px;b
       <div class="adminTableHead"><strong>İstifadəçilər</strong><span id="adminStatus" class="adminSub"></span></div>
       <div class="adminTableScroll">
         <table id="adminUsersTable">
-          <thead><tr><th>E-mail</th><th>Ad / Soyad</th><th>Rol</th><th>Status</th><th>Qeydiyyat</th><th>Əməliyyat</th></tr></thead>
+          <thead><tr><th>E-mail</th><th>Ad / Soyad</th><th>Rol</th><th>Status</th><th>Qeydiyyat</th><th>Son giriş</th><th>Əməliyyat</th></tr></thead>
           <tbody id="adminUsersBody"></tbody>
         </table>
       </div>
@@ -2418,7 +2418,7 @@ window.addEventListener('resize',()=>{if(results.length)render()});
     if(!admin()) return;
     status.textContent='Yüklənir...'; body.innerHTML='';
     const sb=window.__forexSupabase;
-    const {data,error}=await sb.from('profiles').select('id,email,full_name,role,status,created_at').order('created_at',{ascending:false});
+    const {data,error}=await sb.from('profiles').select('id,email,full_name,role,status,created_at,last_login').order('created_at',{ascending:false});
     if(error){status.textContent='Xəta: '+error.message;return;}
     const rows=data||[];
     total.textContent=rows.length; active.textContent=rows.filter(x=>x.status==='active').length; blocked.textContent=rows.filter(x=>x.status==='blocked').length;
@@ -2428,9 +2428,15 @@ window.addEventListener('resize',()=>{if(results.length)render()});
       vals.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});
       const ts=document.createElement('td'); const b=document.createElement('span'); b.className='adminBadge '+(p.status==='active'?'adminActive':'adminBlocked'); b.textContent=p.status||'—'; ts.appendChild(b); tr.appendChild(ts);
       const tc=document.createElement('td');tc.textContent=date(p.created_at);tr.appendChild(tc);
+      const tl=document.createElement('td');tl.textContent=date(p.last_login);tr.appendChild(tl);
       const ta=document.createElement('td');
       if(user && p.id===user.id){ta.textContent='Cari hesab';ta.className='adminSub';}
-      else {const btn=document.createElement('button');btn.className='adminBtn';btn.textContent=p.status==='active'?'Blokla':'Aktivləşdir';btn.onclick=()=>changeStatus(p);ta.appendChild(btn);}
+      else {
+        const wrap=document.createElement('div'); wrap.style.display='flex'; wrap.style.gap='6px'; wrap.style.flexWrap='wrap';
+        const btn=document.createElement('button');btn.className='adminBtn';btn.textContent=p.status==='active'?'Blokla':'Aktivləşdir';btn.onclick=()=>changeStatus(p);wrap.appendChild(btn);
+        const del=document.createElement('button');del.className='adminDelete';del.textContent='Sil';del.onclick=()=>deleteUser(p);wrap.appendChild(del);
+        ta.appendChild(wrap);
+      }
       tr.appendChild(ta); body.appendChild(tr);
     });
     status.textContent=rows.length+' istifadəçi';
@@ -2443,6 +2449,22 @@ window.addEventListener('resize',()=>{if(results.length)render()});
     const {error}=await window.__forexSupabase.from('profiles').update({status:next}).eq('id',p.id);
     if(error){alert('Əməliyyat alınmadı: '+error.message);return;}
     load();
+  }
+
+  async function deleteUser(p){
+    if(!admin() || (user && p.id===user.id)) return;
+    const ok=confirm((p.email||'Bu istifadəçini')+' silmək istəyirsiniz?\n\nBu əməliyyat istifadəçinin giriş hesabını və profilini tamamilə siləcək. Geri qaytarmaq mümkün deyil.');
+    if(!ok)return;
+    try{
+      status.textContent='İstifadəçi silinir...';
+      const {data,error}=await window.__forexSupabase.functions.invoke('admin-delete-user',{body:{user_id:p.id}});
+      if(error) throw new Error(error.message||'Server funksiyası ilə əlaqə alınmadı.');
+      if(data?.error) throw new Error(data.error);
+      await load();
+    }catch(error){
+      alert('İstifadəçi silinmədi: '+(error?.message||'Naməlum xəta'));
+      status.textContent='Xəta baş verdi';
+    }
   }
 
   open.onclick=()=>{if(admin()){panel.style.display='block';load();}};
